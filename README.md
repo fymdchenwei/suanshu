@@ -143,7 +143,7 @@ SuanShuXiaoKongLong/
 - 相同种子结果相同，不同种子结果不同
 - 星星分界：27 题 3 星，26 题 2 星，21 题 2 星，20 题 1 星
 
-iOS 能否编译，看 GitHub Actions 的 **iOS build**：它会编 iPhone 15 Pro 模拟器，并打出未签名的真机包。Linux 本机没有 Xcode，不能启动模拟器，也没有看过横屏画面和 RealityKit 场景。签名后的真机安装要靠上面的 Sideloadly / AltStore 步骤，在手机上确认。
+GitHub Actions 的 **iOS build** 已在 macOS 上编过：QuestionEngine 测试通过，iPhone 15 Pro 模拟器 Debug 编过，未签名的 Release 包已上传。成功的一次运行：https://github.com/fymdchenwei/suanshu/actions/runs/36451259462 （产物 `SuanShu-unsigned`）。Linux 本机没有 Xcode，不能启动模拟器，也没有看过横屏画面和 RealityKit 场景。签名后的真机安装要靠上面的 Sideloadly / AltStore 步骤，在手机上确认。
 
 ## 这一版先不做
 
