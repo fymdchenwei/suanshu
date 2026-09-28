@@ -11,7 +11,7 @@
 - 目标机型：iPhone 15 Pro，只支持横屏（左横屏、右横屏）
 - 只做 iPhone，工程里没有 iPad 目标
 
-这台开发环境是 Linux，没有 Xcode，所以 **iOS 工程没有在 Mac 上实际编译或跑过模拟器**。出题引擎是纯 Swift，已经用 `swift test` 跑过（见下面的「验证」）。
+出题引擎是纯 Swift，本机可以用 `swift test` 跑（见「验证」）。没有 Mac 时，GitHub Actions 会在 macOS 上编译工程，并上传未签名的安装包，见「没有 Mac 时怎么安装」。
 
 ## 在 Mac 上打开并运行
 
@@ -22,6 +22,44 @@
 5. 按 Run。应用启动后是横屏。Info.plist 和 AppDelegate 都只允许横屏左右两个方向。
 
 Bundle ID 是 `com.suanshuxiaokonglong.app`。要上架或和别的 App 冲突时，改成你自己的 ID。
+
+## 没有 Mac 时怎么安装
+
+仓库里的工作流 `.github/workflows/ios-build.yml`（Actions 里的 **iOS build**）会在 `macos-15` 上选择 Xcode 16.4（没有 16.4 时退回其他 Xcode 16）。每次 push、pull request，或在 Actions 页手动 **Run workflow**，都会：
+
+1. 跑 `QuestionEngine` 的 `swift test`
+2. 用 **iPhone 15 Pro** 模拟器编译 Debug，确认工程能编过
+3. 打一个 **未签名** 的 Release 真机包，文件名是 `SuanShu-unsigned.ipa`，挂在这次运行的 Artifacts 里
+
+这个 ipa 没有苹果签名。在 Windows 上用免费 Apple ID，通过 Sideloadly 或 AltStore 装到自己的 iPhone。装的时候工具会用你的 Apple ID 重新签名。
+
+### 下载
+
+1. 打开本仓库的 **Actions**，点进一次绿色的 **iOS build**。
+2. 滚到页面底部的 **Artifacts**，下载 **SuanShu-unsigned**。
+3. GitHub 会再套一层 zip。解压后得到 `SuanShu-unsigned.ipa`。
+
+产物默认保留 30 天。过期了就再跑一次工作流，或推一次代码。
+
+### 用 Sideloadly 安装（Windows）
+
+1. 安装 [Sideloadly](https://sideloadly.io)。
+2. 用数据线连接 iPhone，在手机上点「信任这台电脑」。
+3. 把 `SuanShu-unsigned.ipa` 拖进 Sideloadly，Apple ID 填一个免费账号（建议用该账号的 App 专用密码）。
+4. 开始安装。Sideloadly 会重新签名并装到手机上。
+
+### 用 AltStore 安装
+
+1. 在电脑上安装 AltServer，按 AltStore 的说明把 AltStore 装到 iPhone（同样用免费 Apple ID）。
+2. 在手机的 AltStore 里选择这个 ipa 安装。电脑上的 AltServer 需要开着。
+
+### 装完后在 iPhone 上
+
+1. 打开 **设置 → 通用 → VPN 与设备管理**（有的系统版本写「设备管理」），点你的 Apple ID，**信任**这个开发者。不信任的话，图标点开会提示未受信任的开发者。
+2. 打开 **设置 → 隐私与安全性 → 开发者模式**，打开 **Developer Mode**，按提示重启。iOS 17 起，侧载的 App 必须开开发者模式才能运行。
+3. 回到桌面，打开「算数小恐龙」。
+
+免费 Apple ID 签出来的 App 大约 **7 天**后失效，到期打不开。用同一台电脑上的 Sideloadly 或 AltStore 再签一次、再装一次即可，进度存在手机本地，重签不会清掉存档。免费账号同时能侧载的 App 数量很少（一般是 3 个），装不上时先删掉别的侧载 App。
 
 出题单元测试：
 
@@ -103,7 +141,7 @@ SuanShuXiaoKongLong/
 - 相同种子结果相同，不同种子结果不同
 - 星星分界：27 题 3 星，26 题 2 星，21 题 2 星，20 题 1 星
 
-没有验证的部分：Xcode 工程能否编译、签名、在 iPhone 15 Pro 模拟器或真机上运行、横屏锁定和 RealityKit 画面。这些需要 Mac 上的 Xcode。
+iOS 能否编译，看 GitHub Actions 的 **iOS build**：它会编 iPhone 15 Pro 模拟器，并打出未签名的真机包。Linux 本机没有 Xcode，不能启动模拟器，也没有看过横屏画面和 RealityKit 场景。签名后的真机安装要靠上面的 Sideloadly / AltStore 步骤，在手机上确认。
 
 ## 这一版先不做
 
