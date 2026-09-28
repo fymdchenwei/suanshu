@@ -129,6 +129,8 @@ SuanShuXiaoKongLong/
 
 `RealityView` 是 iOS 18 / Xcode 16 才加进 iPhone SDK 的。这个工程要在 Xcode 15 上打开，部署目标是 iOS 17，所以画面放在非 AR 的 `ARView`（`cameraMode = .nonAR`）里，这是 iOS 17 上可用的 RealityKit 视图。不会申请相机权限去拍照；Info.plist 里的相机说明只是为了避免 ARView 误触发相机时直接崩溃。
 
+圆柱和圆锥也是 iOS 18 才有的 `generateCylinder` / `generateCone`。岛面、石头、树干和背刺用 `MeshDescriptor` 自己组网格，部署目标仍然是 iOS 17。
+
 ## 验证
 
 已在 Linux 上用 Swift 6.0.3 执行 `cd QuestionEngine && swift test`。6 个 XCTest 用例全部通过，覆盖：

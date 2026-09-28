@@ -1,5 +1,6 @@
 import ARKit
 import RealityKit
+import simd
 import UIKit
 
 /// Hosts RealityKit scenes on iOS 17.
@@ -141,6 +142,82 @@ enum NumberTexture {
         ) else { return nil }
         cache[key] = resource
         return resource
+    }
+}
+
+/// Cylinders and cones centered on the origin, height along Y.
+/// `MeshResource.generateCylinder` and `generateCone` are iOS 18, so these
+/// are built with `MeshDescriptor`, which is available on iOS 17.
+enum PrimitiveMesh {
+    static func cylinder(height: Float, radius: Float) -> MeshResource {
+        roundMesh(height: height, bottomRadius: radius, topRadius: radius)
+    }
+
+    static func cone(height: Float, radius: Float) -> MeshResource {
+        roundMesh(height: height, bottomRadius: radius, topRadius: radius * 0.02)
+    }
+
+    private static func roundMesh(height: Float, bottomRadius: Float, topRadius: Float) -> MeshResource {
+        let segments = 28
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var uvs: [SIMD2<Float>] = []
+        var indices: [UInt32] = []
+
+        func add(_ position: SIMD3<Float>, _ normal: SIMD3<Float>) -> UInt32 {
+            let index = UInt32(positions.count)
+            positions.append(position)
+            let length = simd_length(normal)
+            normals.append(length > 0.0001 ? normal / length : SIMD3(0, 1, 0))
+            uvs.append([0.5, 0.5])
+            return index
+        }
+
+        let y0 = -height / 2
+        let y1 = height / 2
+        let rise = topRadius - bottomRadius
+        let side = sqrt(rise * rise + height * height)
+        let normalY = rise / max(side, 0.0001)
+        let normalR = height / max(side, 0.0001)
+
+        for index in 0..<segments {
+            let a0 = Float(index) / Float(segments) * 2 * Float.pi
+            let a1 = Float(index + 1) / Float(segments) * 2 * Float.pi
+            let c0 = cos(a0)
+            let s0 = sin(a0)
+            let c1 = cos(a1)
+            let s1 = sin(a1)
+            let n0 = SIMD3<Float>(c0 * normalR, normalY, s0 * normalR)
+            let n1 = SIMD3<Float>(c1 * normalR, normalY, s1 * normalR)
+            let b0 = add([c0 * bottomRadius, y0, s0 * bottomRadius], n0)
+            let b1 = add([c1 * bottomRadius, y0, s1 * bottomRadius], n1)
+            let t0 = add([c0 * topRadius, y1, s0 * topRadius], n0)
+            let t1 = add([c1 * topRadius, y1, s1 * topRadius], n1)
+            indices.append(contentsOf: [b0, t0, b1, b1, t0, t1, b0, b1, t0, b1, t1, t0])
+        }
+
+        let bottomCenter = add([0, y0, 0], [0, -1, 0])
+        let topCenter = add([0, y1, 0], [0, 1, 0])
+        for index in 0..<segments {
+            let a0 = Float(index) / Float(segments) * 2 * Float.pi
+            let a1 = Float(index + 1) / Float(segments) * 2 * Float.pi
+            let b0 = add([cos(a0) * bottomRadius, y0, sin(a0) * bottomRadius], [0, -1, 0])
+            let b1 = add([cos(a1) * bottomRadius, y0, sin(a1) * bottomRadius], [0, -1, 0])
+            indices.append(contentsOf: [bottomCenter, b1, b0, bottomCenter, b0, b1])
+            let t0 = add([cos(a0) * topRadius, y1, sin(a0) * topRadius], [0, 1, 0])
+            let t1 = add([cos(a1) * topRadius, y1, sin(a1) * topRadius], [0, 1, 0])
+            indices.append(contentsOf: [topCenter, t0, t1, topCenter, t1, t0])
+        }
+
+        var descriptor = MeshDescriptor(name: "round")
+        descriptor.positions = MeshBuffers.Positions(positions)
+        descriptor.normals = MeshBuffers.Normals(normals)
+        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(uvs)
+        descriptor.primitives = .triangles(indices)
+        if let mesh = try? MeshResource.generate(from: [descriptor]) {
+            return mesh
+        }
+        return .generateBox(width: max(bottomRadius, topRadius) * 2, height: height, depth: max(bottomRadius, topRadius) * 2)
     }
 }
 

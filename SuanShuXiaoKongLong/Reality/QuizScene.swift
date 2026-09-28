@@ -28,7 +28,7 @@ final class QuizScene {
 
         for index in 0..<10 {
             let stone = ModelEntity(
-                mesh: .generateCylinder(height: 0.06, radius: 0.13),
+                mesh: PrimitiveMesh.cylinder(height: 0.06, radius: 0.13),
                 materials: [Clay.material(Clay.stone)]
             )
             stone.position = stonePosition(index)

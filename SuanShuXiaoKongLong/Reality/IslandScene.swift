@@ -10,21 +10,21 @@ final class IslandScene {
 
     init() {
         let dirt = ModelEntity(
-            mesh: .generateCylinder(height: 0.36, radius: 0.95),
+            mesh: PrimitiveMesh.cylinder(height: 0.36, radius: 0.95),
             materials: [Clay.material(Clay.dirt)]
         )
         dirt.position = [0, -0.08, 0]
         anchor.addChild(dirt)
 
         let rim = ModelEntity(
-            mesh: .generateCylinder(height: 0.08, radius: 1.02),
+            mesh: PrimitiveMesh.cylinder(height: 0.08, radius: 1.02),
             materials: [Clay.material(Clay.dirtDark)]
         )
         rim.position = [0, 0.04, 0]
         anchor.addChild(rim)
 
         let grass = ModelEntity(
-            mesh: .generateCylinder(height: 0.12, radius: 1.0),
+            mesh: PrimitiveMesh.cylinder(height: 0.12, radius: 1.0),
             materials: [Clay.material(Clay.grass)]
         )
         grass.position = [0, 0.10, 0]
@@ -104,7 +104,7 @@ final class IslandScene {
         let root = Entity()
         root.position = position
         let body = ModelEntity(
-            mesh: .generateCylinder(height: 0.055, radius: radius),
+            mesh: PrimitiveMesh.cylinder(height: 0.055, radius: radius),
             materials: [Clay.material(fill)]
         )
         root.addChild(body)

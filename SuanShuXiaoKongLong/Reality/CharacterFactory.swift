@@ -51,7 +51,7 @@ enum DinosaurFactory {
         ]
         for spot in spikeSpots {
             let spike = ModelEntity(
-                mesh: .generateCone(height: 0.075, radius: 0.03),
+                mesh: PrimitiveMesh.cone(height: 0.075, radius: 0.03),
                 materials: [Clay.material(Clay.orange)]
             )
             spike.position = spot
@@ -83,7 +83,7 @@ enum DinosaurFactory {
         }
 
         let shadow = ModelEntity(
-            mesh: .generateCylinder(height: 0.012, radius: 0.14),
+            mesh: PrimitiveMesh.cylinder(height: 0.012, radius: 0.14),
             materials: [Clay.material(Clay.greenDark)]
         )
         shadow.position = [0, 0.006, 0.02]
@@ -198,7 +198,7 @@ enum PropFactory {
     static func palm(height: Float) -> Entity {
         let root = Entity()
         let trunk = ModelEntity(
-            mesh: .generateCylinder(height: height, radius: 0.035),
+            mesh: PrimitiveMesh.cylinder(height: height, radius: 0.035),
             materials: [Clay.material(Clay.trunk)]
         )
         trunk.position = [0, height / 2, 0]
@@ -294,7 +294,7 @@ enum PropFactory {
         center.position = [0, 0.04, 0]
         root.addChild(center)
         let stem = ModelEntity(
-            mesh: .generateCylinder(height: 0.05, radius: 0.006),
+            mesh: PrimitiveMesh.cylinder(height: 0.05, radius: 0.006),
             materials: [Clay.material(Clay.leaf)]
         )
         stem.position = [0, 0.02, 0]
