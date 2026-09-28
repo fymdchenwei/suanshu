@@ -1,0 +1,121 @@
+name: iOS build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Simulator and unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          select_xcode() {
+            local app="$1"
+            if [ -d "$app" ]; then
+              sudo xcode-select -s "$app"
+              echo "Selected $app"
+              return 0
+            fi
+            return 1
+          }
+          select_xcode /Applications/Xcode_16.4.app \
+            || select_xcode /Applications/Xcode_16.3.app \
+            || select_xcode /Applications/Xcode_16.2.app \
+            || select_xcode /Applications/Xcode_16.1.app \
+            || select_xcode /Applications/Xcode_16.app \
+            || select_xcode /Applications/Xcode.app \
+            || {
+              echo "No Xcode 16+ installation found"
+              ls -d /Applications/Xcode*.app || true
+              exit 1
+            }
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: QuestionEngine tests
+        working-directory: QuestionEngine
+        run: swift test
+
+      - name: Ensure iPhone 15 Pro simulator
+        id: simulator
+        run: |
+          set -euo pipefail
+          UDID="$(xcrun simctl list devices available | sed -n 's/^[[:space:]]*iPhone 15 Pro (\([A-F0-9-]*\)).*/\1/p' | head -1 || true)"
+          if [ -z "${UDID}" ]; then
+            DEVICETYPE="$(xcrun simctl list devicetypes | sed -n 's/^iPhone 15 Pro (\(com.apple.CoreSimulator.SimDeviceType[^)]*\)).*/\1/p' | head -1 || true)"
+            if [ -z "${DEVICETYPE}" ]; then
+              echo "iPhone 15 Pro device type is not installed"
+              xcrun simctl list devicetypes
+              exit 1
+            fi
+            RUNTIME="$(xcrun simctl list runtimes available -j | python3 -c 'import json,sys; data=json.load(sys.stdin); runtimes=[r for r in data.get("runtimes",[]) if r.get("isAvailable") and "iOS" in (r.get("name") or "")]; sys.exit("no available iOS simulator runtime") if not runtimes else None; runtimes.sort(key=lambda r: [int(p) if p.isdigit() else p for p in str(r.get("version","0")).split(".")]); print(runtimes[-1]["identifier"])')"
+            echo "Creating iPhone 15 Pro ($DEVICETYPE, $RUNTIME)"
+            UDID="$(xcrun simctl create "iPhone 15 Pro" "$DEVICETYPE" "$RUNTIME")"
+          fi
+          echo "Using iPhone 15 Pro simulator $UDID"
+          xcrun simctl list devices available | grep -F "$UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build for iPhone 15 Pro simulator
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project SuanShuXiaoKongLong.xcodeproj \
+            -scheme SuanShuXiaoKongLong \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath "${RUNNER_TEMP}/dd-simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Build unsigned Release device app
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project SuanShuXiaoKongLong.xcodeproj \
+            -scheme SuanShuXiaoKongLong \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "${RUNNER_TEMP}/dd-device" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+          APP="${RUNNER_TEMP}/dd-device/Build/Products/Release-iphoneos/SuanShuXiaoKongLong.app"
+          if [ ! -d "$APP" ]; then
+            echo "Release .app was not produced"
+            find "${RUNNER_TEMP}/dd-device/Build/Products" -maxdepth 2 -type d -name "*.app" || true
+            exit 1
+          fi
+          # Sideloadly / AltStore expect an unsigned zip whose root is Payload/<App>.app.
+          rm -rf Payload SuanShu-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry SuanShu-unsigned.ipa Payload
+          unzip -l SuanShu-unsigned.ipa | head -n 20
+          test -s SuanShu-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: SuanShu-unsigned
+          path: SuanShu-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
