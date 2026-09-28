@@ -9,7 +9,7 @@ final class QuizScene {
     private let chest: ChestAnimator
     private var landed = 0
     private var hop: Hop?
-    private let standY: Float = 0.12
+    private static let standHeight: Float = 0.12
 
     private struct Hop {
         var from: SIMD3<Float>
@@ -31,14 +31,14 @@ final class QuizScene {
                 mesh: PrimitiveMesh.cylinder(height: 0.06, radius: 0.13),
                 materials: [Clay.material(Clay.stone)]
             )
-            stone.position = stonePosition(index)
+            stone.position = Self.stonePosition(index)
             stone.name = "stone-\(index)"
             stones.append(stone)
             anchor.addChild(stone)
         }
 
         dinosaur = DinosaurFactory.make(scale: 0.62, waving: false, cape: false)
-        dinosaur.position = standPosition(0)
+        dinosaur.position = Self.standPosition(0)
         anchor.addChild(dinosaur)
 
         chest = ChestAnimator(scale: 0.55)
@@ -66,14 +66,14 @@ final class QuizScene {
         if clamped < landed {
             hop = nil
             landed = clamped
-            dinosaur.position = standPosition(clamped)
+            dinosaur.position = Self.standPosition(clamped)
             recolor()
             return
         }
         if clamped == landed {
             return
         }
-        hop = Hop(from: dinosaur.position, to: standPosition(clamped), start: CACurrentMediaTime())
+        hop = Hop(from: dinosaur.position, to: Self.standPosition(clamped), start: CACurrentMediaTime())
         landed = clamped
         recolor()
     }
@@ -93,7 +93,7 @@ final class QuizScene {
                 self.hop = nil
             }
         } else {
-            var position = standPosition(landed)
+            var position = Self.standPosition(landed)
             position.y += sin(Float(time) * 2.4) * 0.012
             dinosaur.position = position
         }
@@ -122,19 +122,19 @@ final class QuizScene {
         }
     }
 
-    private func stonePosition(_ index: Int) -> SIMD3<Float> {
+    private static func stonePosition(_ index: Int) -> SIMD3<Float> {
         let t = Float(index) / 9
         let x = -1.7 + 3.4 * t
         let z = sin(t * .pi) * 0.08
         return [x, 0.04, z]
     }
 
-    private func standPosition(_ landedCount: Int) -> SIMD3<Float> {
+    private static func standPosition(_ landedCount: Int) -> SIMD3<Float> {
         if landedCount <= 0 {
-            return [-2.05, standY, 0.02]
+            return [-2.05, standHeight, 0.02]
         }
         var position = stonePosition(landedCount - 1)
-        position.y = standY
+        position.y = standHeight
         return position
     }
 }

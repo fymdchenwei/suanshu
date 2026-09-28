@@ -9,9 +9,9 @@ final class PodiumScene {
     private let baseDinoY: Float
 
     init() {
-        addBlock(number: "2", center: [-0.34, 0, 0], size: [0.28, 0.26, 0.28], color: Clay.goldDark)
-        addBlock(number: "1", center: [0, 0, 0], size: [0.32, 0.42, 0.32], color: Clay.gold)
-        addBlock(number: "3", center: [0.32, 0, 0], size: [0.26, 0.18, 0.26], color: Clay.goldDark)
+        Self.addBlock(to: anchor, number: "2", center: [-0.34, 0, 0], size: [0.28, 0.26, 0.28], color: Clay.goldDark)
+        Self.addBlock(to: anchor, number: "1", center: [0, 0, 0], size: [0.32, 0.42, 0.32], color: Clay.gold)
+        Self.addBlock(to: anchor, number: "3", center: [0.32, 0, 0], size: [0.26, 0.18, 0.26], color: Clay.goldDark)
 
         let dinosaur = DinosaurFactory.make(scale: 0.7, waving: true, cape: true)
         dinosaur.position = [0, 0.42, 0.02]
@@ -40,7 +40,7 @@ final class PodiumScene {
         chest.update()
     }
 
-    private func addBlock(number: String, center: SIMD3<Float>, size: SIMD3<Float>, color: UIColor) {
+    private static func addBlock(to anchor: Entity, number: String, center: SIMD3<Float>, size: SIMD3<Float>, color: UIColor) {
         let block = ModelEntity(
             mesh: .generateBox(width: size.x, height: size.y, depth: size.z, cornerRadius: 0.02),
             materials: [Clay.material(color)]
