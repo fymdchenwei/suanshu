@@ -1,5 +1,6 @@
 import { ALL_DIFFICULTIES, ROUND_SIZE, type Difficulty, type Problem } from '../engine/questionEngine';
 import { cardSvg } from '../game/cardArt';
+import { cardFaceUrl, lockedCardUrl, sceneArt } from '../game/cardFaces';
 import {
   CARDS,
   RARITY_LABEL,
@@ -43,6 +44,9 @@ const KEYS: { label: string; name: string; value: number | 'del' | 'ok'; color: 
 ];
 
 export function mountApp(session: GameSession, stage: Stage): void {
+  const scenes = sceneArt();
+  document.documentElement.style.setProperty('--art-home', `url("${scenes.home}")`);
+  document.documentElement.style.setProperty('--art-reveal', `url("${scenes.reveal}")`);
   const root = document.querySelector('#app');
   if (!root) return;
   root.innerHTML = template();
@@ -76,9 +80,18 @@ export function mountApp(session: GameSession, stage: Stage): void {
   });
   bindTap(ui.chestCards, () => session.openCards());
   bindTap(ui.pet, () => {
-    stage.petHome();
     session.cheerPet();
     floatHearts(ui.pet);
+    const sprite = ui.pet.querySelector('.island-sprite');
+    if (sprite instanceof HTMLElement) {
+      sprite.classList.remove('is-hop');
+      void sprite.offsetWidth;
+      sprite.classList.add('is-hop');
+    }
+  });
+  ui.pet.querySelector('.island-sprite')?.addEventListener('animationend', (event) => {
+    if (!(event instanceof AnimationEvent) || event.animationName !== 'island-hop') return;
+    if (event.currentTarget instanceof HTMLElement) event.currentTarget.classList.remove('is-hop');
   });
   bindCardTap(ui.cards, (id) => openInspect(ui, id, session));
   ui.album.addEventListener('pointermove', (event) => tiltCard(event));
@@ -153,6 +166,7 @@ export function mountApp(session: GameSession, stage: Stage): void {
 }
 
 function template(): string {
+  const scenes = sceneArt();
   return `
     <section id="home" class="screen screen-home">
       <header class="topbar">
@@ -164,15 +178,9 @@ function template(): string {
       </header>
       <div class="home-stage">
         <div id="home-hero" class="home-hero">
-          <button id="pet-dino" type="button" aria-label="摸摸小恐龙"></button>
+          <button id="pet-dino" type="button" aria-label="摸摸小恐龙"><img class="island-sprite" src="${scenes.island}" alt="" draggable="false"></button>
         </div>
         <div class="home-path">
-          <div class="path-sky" aria-hidden="true">
-            <div class="rainbow"></div>
-            <i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i>
-            <i class="twinkle t1"></i><i class="twinkle t2"></i><i class="twinkle t3"></i><i class="twinkle t4"></i>
-            <i class="twinkle t5"></i><i class="twinkle t6"></i>
-          </div>
           <div class="path-play">
             <div class="path-board" id="path-nodes">
               <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -256,12 +264,11 @@ function template(): string {
         <div class="chest-pop" aria-hidden="true">${confettiBits()}</div>
         <h2 id="chest-title" class="ribbon-title"><span>${Copy.newCard}</span></h2>
         <div class="chest-stage">
-          <div class="chest-dino" aria-hidden="true">${cheerDinoSvg()}</div>
+          <div class="chest-dino" aria-hidden="true"><img src="${scenes.cheer}" alt="" draggable="false"></div>
           <div id="reveal-card" class="reveal-card"></div>
           <div class="chest-bubble" id="chest-bubble">
-            <i aria-hidden="true">★</i>
-            <p id="chest-copy"></p>
-            <i aria-hidden="true">★</i>
+            <p class="line-pink">太棒啦</p>
+            <p class="line-blue" id="chest-copy">继续加油！</p>
           </div>
           <p id="chest-meta" hidden></p>
         </div>
@@ -567,8 +574,9 @@ function placeQuizStage(session: GameSession): void {
     canvas.style.pointerEvents = 'none';
     return true;
   };
+  canvas.style.visibility = session.screen === 'home' ? 'hidden' : '';
   if (session.screen === 'quiz' && pin(document.querySelector('#quiz-island'), '10px', '2')) return;
-  if (session.screen === 'home' && pin(document.querySelector('#home-hero'), '28px', '0')) return;
+  if (session.screen === 'home') return;
   canvas.style.left = '0';
   canvas.style.top = '0';
   canvas.style.width = '100%';
@@ -598,7 +606,7 @@ function buildAlbum(album: HTMLElement): void {
     button.dataset.card = def.id;
     button.innerHTML = `
       <div class="tc-tilt">
-        <div class="tc-art">${cardSvg(def)}</div>
+        <div class="tc-art">${cardPicture(def, true)}</div>
         <div class="foil"></div>
         <span class="q-mark" aria-hidden="true">?</span>
         <span class="lock-mini" aria-hidden="true">🔒</span>
@@ -664,8 +672,9 @@ function sync(ui: Ui, session: GameSession): void {
     const stars = cleared
       ? `<span class="node-stars">${Array.from({ length: 3 }, (_, index) => `<i class="${index < best ? 'on' : ''}">★</i>`).join('')}</span>`
       : '';
-    const marker = cleared ? '' : '<span class="node-lock" aria-hidden="true">🔒</span><span class="node-arrow" aria-hidden="true">▼</span>';
-    const markup = `${marker}${stars}`;
+    const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
+    const arrow = selected ? '<span class="node-arrow" aria-hidden="true">▼</span>' : '';
+    const markup = `<span class="node-num">${difficulty}</span>${lock}${arrow}${stars}`;
     if (node.dataset.view !== markup) {
       node.dataset.view = markup;
       node.innerHTML = markup;
@@ -737,7 +746,7 @@ function sync(ui: Ui, session: GameSession): void {
         .map((card) => {
           const def = resolveCard(card.id);
           if (!def) return '';
-          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)} · ${correctLabel(card.correctCount, true)}</small></div></button>`;
+          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)} · ${correctLabel(card.correctCount, true)}</small></div></button>`;
         })
         .join('')}</div>`
     : '';
@@ -764,6 +773,8 @@ function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard 
   if (name) name.textContent = earned ? def.name : '';
   if (detail) detail.textContent = earned ? '' : hint;
   if (foot) foot.textContent = '';
+  const face = button.querySelector<HTMLImageElement>('.tc-art img');
+  if (face) face.src = earned ? (cardFaceUrl(def.id) ?? lockedCardUrl()) : lockedCardUrl();
 }
 
 function paintChest(ui: Ui, session: GameSession): void {
@@ -780,14 +791,15 @@ function paintChest(ui: Ui, session: GameSession): void {
     ui.revealCard.innerHTML = chestCardShell(def);
     const title = ui.chestTitle.querySelector('span');
     if (title) title.textContent = Copy.newCard;
-    const keepGoing = def.id === 'cheer-up' || def.id === 'retry-heart';
-    ui.chestBubble.classList.toggle('is-blue', keepGoing);
-    ui.chestBubble.classList.toggle('is-pink', !keepGoing);
-    ui.chestCopy.textContent = keepGoing ? '继续加油！' : '太棒啦';
+    const pink = ui.chestBubble.querySelector('.line-pink');
+    if (pink) pink.textContent = '太棒啦';
+    ui.chestCopy.textContent = '继续加油！';
     ui.chestMeta.textContent = '';
   } else {
     ui.revealCard.innerHTML = '';
     ui.chestTitle.textContent = Copy.chestEmptyTitle;
+    const pink = ui.chestBubble.querySelector('.line-pink');
+    if (pink) pink.textContent = '';
     ui.chestCopy.textContent = Copy.chestEmptyDetail;
     ui.chestMeta.textContent = '';
   }
@@ -795,13 +807,19 @@ function paintChest(ui: Ui, session: GameSession): void {
 }
 
 function chestCardShell(def: CardDef): string {
-  return `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><strong class="tc-name">${def.name}</strong><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b></div>`;
+  return `<div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><strong class="tc-name">${def.name}</strong><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b></div>`;
+}
+
+function cardPicture(def: CardDef, locked = false): string {
+  const src = locked ? lockedCardUrl() : cardFaceUrl(def.id);
+  if (!src) return cardSvg(def);
+  return `<img src="${src}" alt="" draggable="false">`;
 }
 
 function miniCard(earned: EarnedCard): string {
   const def = resolveCard(earned.id);
   if (!def) return '';
-  return `<div class="mini-card rarity-${def.rarity}">${cardSvg(def)}<div><strong>${def.name}</strong><em>${earned.achievement}</em></div></div>`;
+  return `<div class="mini-card rarity-${def.rarity}">${cardPicture(def)}<div><strong>${def.name}</strong><em>${earned.achievement}</em></div></div>`;
 }
 
 function openInspect(ui: Ui, id: string, session: GameSession): void {
@@ -813,7 +831,7 @@ function openInspect(ui: Ui, id: string, session: GameSession): void {
   ui.inspectSay.textContent = earned ? def.line : hint;
   ui.inspectCard.innerHTML = earned
     ? chestCardShell(def)
-    : `<div class="tc-tilt"><span class="q-mark" aria-hidden="true">?</span><span class="lock-mini" aria-hidden="true">🔒</span><em class="tc-detail">${hint}</em></div>`;
+    : `<div class="tc-tilt"><div class="tc-art">${cardPicture(def, true)}</div><em class="tc-detail">${hint}</em></div>`;
   ui.inspect.hidden = false;
   ui.inspectTilt?.();
   ui.inspectTilt = bindInspectTilt(ui.inspectCard);
@@ -1129,32 +1147,6 @@ function confettiBits(): string {
     const dx = (index % 2 === 0 ? -1 : 1) * (18 + ((index * 13) % 48));
     return `<i style="--i:${index};--dx:${dx}px"></i>`;
   }).join('');
-}
-
-function cheerDinoSvg(): string {
-  return `<svg viewBox="0 0 140 170" aria-hidden="true">
-    <ellipse cx="70" cy="156" rx="40" ry="10" fill="#7dce4e"/>
-    <ellipse cx="28" cy="78" rx="10" ry="16" fill="#ffb03a"/>
-    <ellipse cx="112" cy="78" rx="10" ry="16" fill="#ffb03a"/>
-    <ellipse cx="70" cy="118" rx="32" ry="26" fill="#7ed9c0"/>
-    <ellipse cx="70" cy="124" rx="18" ry="14" fill="#fff6ea"/>
-    <ellipse cx="46" cy="142" rx="12" ry="7" fill="#49c4a8"/>
-    <ellipse cx="94" cy="142" rx="12" ry="7" fill="#49c4a8"/>
-    <ellipse cx="24" cy="96" rx="9" ry="8" fill="#7ed9c0" transform="rotate(50 24 96)"/>
-    <ellipse cx="116" cy="96" rx="9" ry="8" fill="#7ed9c0" transform="rotate(-50 116 96)"/>
-    <ellipse cx="18" cy="78" rx="8" ry="8" fill="#7ed9c0"/>
-    <ellipse cx="122" cy="78" rx="8" ry="8" fill="#7ed9c0"/>
-    <ellipse cx="70" cy="68" rx="36" ry="32" fill="#7ed9c0"/>
-    <ellipse cx="54" cy="66" rx="11" ry="13" fill="#fff"/>
-    <ellipse cx="86" cy="66" rx="11" ry="13" fill="#fff"/>
-    <ellipse cx="55" cy="68" rx="5.5" ry="6.5" fill="#6b4226"/>
-    <ellipse cx="87" cy="68" rx="5.5" ry="6.5" fill="#6b4226"/>
-    <circle cx="58" cy="64" r="2.4" fill="#fff"/>
-    <circle cx="90" cy="64" r="2.4" fill="#fff"/>
-    <ellipse cx="40" cy="80" rx="7" ry="3.5" fill="#ff8eaa"/>
-    <ellipse cx="100" cy="80" rx="7" ry="3.5" fill="#ff8eaa"/>
-    <path d="M58 84 Q70 96 82 84" fill="none" stroke="#5a3a28" stroke-width="2.6" stroke-linecap="round"/>
-  </svg>`;
 }
 
 function starSvg(): string {

@@ -194,6 +194,7 @@ export class Stage {
     this.results.position.y = 0.42;
     this.results.scale.setScalar(1.22);
     this.scene.add(this.home, this.quiz, this.results);
+    this.home.visible = false;
     this.quiz.visible = false;
     this.results.visible = false;
 
@@ -208,7 +209,7 @@ export class Stage {
   setMode(mode: StageMode): void {
     if (this.mode !== mode) {
       this.mode = mode;
-      this.home.visible = mode === 'home';
+      this.home.visible = false;
       this.quiz.visible = mode === 'quiz';
       this.results.visible = mode === 'results';
       this.sampleIn = 0;

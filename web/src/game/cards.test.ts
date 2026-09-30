@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { REUSED_CARD_ART, cardFaceFile } from './cardFaces';
 import {
   CARDS,
   grantsFor,
@@ -45,6 +46,10 @@ describe('card awards', () => {
     for (const name of ['萌芽小龙', '云朵精灵', '数学小机器人', '草莓猫咪', '星星仙子', '宇航兔']) {
       expect(CARDS.some((card) => card.name === name)).toBe(true);
     }
+    const own = ['sprout', 'streak-10', 'one-breath', 'advanced-clear', 'correct-300', 'night-sky'];
+    for (const card of CARDS) expect(cardFaceFile(card.id)).toMatch(/\.webp$/);
+    for (const id of own) expect(REUSED_CARD_ART[id]).toBeUndefined();
+    expect(Object.keys(REUSED_CARD_ART)).toHaveLength(CARDS.length - own.length);
   });
 
   it('records a perfect stage with the streak cards', () => {

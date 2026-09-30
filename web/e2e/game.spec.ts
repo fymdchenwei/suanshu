@@ -16,15 +16,9 @@ test('plays a colourful round and collects cards', async ({ page }) => {
 
   await page.goto('/suanshu/');
   await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-ready') === '1');
-  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-variance') || 0) > 12);
-  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-frame-ms') || 0) > 0);
-  const renderer = await page.locator('#stage').getAttribute('data-renderer');
-  const frameMs = Number(await page.locator('#stage').getAttribute('data-frame-ms'));
-  const draws = Number(await page.locator('#stage').getAttribute('data-draws'));
-  console.log(`WebGL renderer: ${renderer}; median frame ${frameMs}ms; draws ${draws}`);
-  expect(frameMs).toBeLessThan(80);
-  expect(draws).toBeGreaterThan(10);
-  expect(draws).toBeLessThan(280);
+  await expect(page.locator('#pet-dino .island-sprite')).toBeVisible();
+  await expect(page.locator(".level-node[data-difficulty='1'] .node-lock")).toHaveCount(0);
+  await expect(page.locator('#diff-row .diff').first()).not.toHaveClass(/locked/);
 
   await expect(page.getByRole('button', { name: '开始闯关' })).toBeVisible();
   await expect(page.locator('#rotate')).toBeHidden();
@@ -38,11 +32,6 @@ test('plays a colourful round and collects cards', async ({ page }) => {
     });
   });
   expect(covered, '难度按钮挡住了小恐龙').toEqual([]);
-  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-blinks') || 0) >= 1);
-  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-blinking') === '1');
-  await page.screenshot({ path: `${shots}/home_blink.png` });
-  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-waving') === '1');
-  await page.screenshot({ path: `${shots}/home_wave.png` });
   await page.screenshot({ path: `${shots}/home_island.png` });
   await page.locator('#pet-dino').tap();
   await page.waitForTimeout(160);
@@ -52,6 +41,15 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await page.getByRole('button', { name: '轻松' }).click();
   await page.getByRole('button', { name: '开始闯关' }).click();
   await expect(page.locator('#quiz')).toBeVisible();
+  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-variance') || 0) > 12);
+  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-frame-ms') || 0) > 0);
+  const renderer = await page.locator('#stage').getAttribute('data-renderer');
+  const frameMs = Number(await page.locator('#stage').getAttribute('data-frame-ms'));
+  const draws = Number(await page.locator('#stage').getAttribute('data-draws'));
+  console.log(`WebGL renderer: ${renderer}; median frame ${frameMs}ms; draws ${draws}`);
+  expect(frameMs).toBeLessThan(80);
+  expect(draws).toBeGreaterThan(10);
+  expect(draws).toBeLessThan(280);
   await blur(page);
 
   for (let step = 0; step < 30; step += 1) {
@@ -71,7 +69,8 @@ test('plays a colourful round and collects cards', async ({ page }) => {
         await expect(page.locator('#chest')).toBeVisible();
       }
       await expect(rarity).toHaveText('稀有');
-      await expect(page.locator('#chest-copy')).not.toHaveText('');
+      await expect(page.locator('#chest-bubble .line-pink')).toHaveText('太棒啦');
+      await expect(page.locator('#chest-copy')).toHaveText('继续加油！');
       await page.waitForTimeout(500);
       await page.screenshot({ path: `${shots}/chest_card.png` });
     }
