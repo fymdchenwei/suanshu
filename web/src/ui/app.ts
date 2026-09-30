@@ -911,6 +911,7 @@ function flyClone(source: HTMLElement, target: HTMLElement): void {
   const to = target.getBoundingClientRect();
   if (from.width === 0 || to.width === 0) return;
   const flyer = source.cloneNode(true) as HTMLElement;
+  flyer.removeAttribute('id');
   flyer.classList.add('flyer');
   flyer.style.left = `${from.left}px`;
   flyer.style.top = `${from.top}px`;

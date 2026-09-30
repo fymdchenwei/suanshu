@@ -280,10 +280,11 @@ test('one tap reaches each control on an iPhone', async ({ page }) => {
   const dismiss = page.locator('#dismiss-chest');
   const dismissBox = await dismiss.boundingBox();
   expect(dismissBox!.height).toBeGreaterThanOrEqual(44);
-  const title = await page.locator('#reveal-card .tc-name').innerText();
+  const shown = page.locator('#chest #reveal-card .tc-name');
+  const title = await shown.innerText();
   await dismiss.tap();
   if (await page.locator('#chest').isVisible()) {
-    await expect(page.locator('#reveal-card .tc-name')).not.toHaveText(title);
+    await expect(shown).not.toHaveText(title);
   }
   expect(errors, errors.join('\n')).toEqual([]);
 });
