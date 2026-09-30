@@ -169,28 +169,26 @@ function template(): string {
       </footer>
     </section>
     <section id="quiz" class="screen screen-quiz" hidden>
-      <aside class="quiz-rail">
-        <div class="rail-tools">
-          <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
-          <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
-          <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
+      <div class="answer-panel">
+        <div class="answer-meta">
+          <div id="streak-banner" class="streak-banner" hidden></div>
+          <div id="combo" class="combo" hidden></div>
         </div>
+        <div id="equation" class="equation"></div>
+        <p id="message" class="message" aria-live="polite"></p>
+      </div>
+      <div class="quiz-strip">
+        <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
         <div id="quiz-island" class="quiz-island"></div>
-        <div class="vtrack" id="track"></div>
         <div class="stage-badge">
           <span id="stage-label">${stageTitle(1)}</span>
           <strong id="progress">1 / 30</strong>
         </div>
-      </aside>
-      <div class="quiz-board">
-        <div class="answer-panel">
-          <div id="combo" class="combo" hidden></div>
-          <div id="streak-banner" class="streak-banner" hidden></div>
-          <div id="equation" class="equation"></div>
-          <p id="message" class="message" aria-live="polite"></p>
-        </div>
-        <div class="keypad" id="keypad"></div>
+        <div class="vtrack" id="track"></div>
+        <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
+        <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </div>
+      <div class="keypad" id="keypad"></div>
     </section>
     <section id="results" class="screen screen-results" hidden>
       <header class="topbar">
@@ -441,7 +439,7 @@ function placeQuizStage(session: GameSession): void {
   canvas.style.width = `${Math.max(1, rect.width)}px`;
   canvas.style.height = `${Math.max(1, rect.height)}px`;
   canvas.style.zIndex = '2';
-  canvas.style.borderRadius = '18px';
+  canvas.style.borderRadius = '10px';
 }
 
 function buildTrack(track: HTMLElement): void {
@@ -703,8 +701,10 @@ function paintEquation(host: HTMLElement, problem: Problem, input: string): void
     host.append(block);
   }
   const bubble = document.createElement('span');
-  bubble.className = 'answer-bubble';
-  bubble.textContent = input.length > 0 ? input : '?';
+  const empty = input.length === 0;
+  bubble.className = empty ? 'answer-bubble is-empty' : 'answer-bubble';
+  bubble.textContent = input;
+  bubble.setAttribute('aria-label', empty ? '答案还没填写' : `答案 ${input}`);
   host.append(bubble);
 }
 
