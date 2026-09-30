@@ -1084,7 +1084,8 @@ body[data-screen='home'] {
   background: transparent;
   box-shadow: none;
 }
-.inspect-card { width: 210px; height: min(300px, 78vh); margin: 0; flex: none; }
+.inspect-card { width: 168px; height: 210px; margin: 0; flex: none; }
+#close-inspect { width: 140px; height: 44px; flex: none; }
 .inspect-card .tc-tilt { height: 100%; }
 .inspect-card.locked .tc-art { filter: grayscale(1) brightness(0.18) contrast(1.3); }
 .inspect-side { display: flex; flex-direction: column; gap: 10px; max-width: 280px; }

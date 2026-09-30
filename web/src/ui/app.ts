@@ -977,6 +977,18 @@ async function share(session: GameSession): Promise<void> {
   }
 }
 
+function todayCorrect(rounds: { playedAt: string; firstTryCorrect: number }[], nowMs = Date.now()): number {
+  const now = new Date(nowMs);
+  return rounds.reduce((sum, round) => {
+    const played = new Date(round.playedAt);
+    const same =
+      played.getFullYear() === now.getFullYear() &&
+      played.getMonth() === now.getMonth() &&
+      played.getDate() === now.getDate();
+    return same ? sum + round.firstTryCorrect : sum;
+  }, 0);
+}
+
 function consecutiveDays(rounds: { playedAt: string }[], nowMs = Date.now()): number {
   const keys = new Set(
     rounds.map((round) => {
@@ -1043,6 +1055,20 @@ function unlockHint(def: CardDef, session: GameSession): string {
   switch (def.id) {
     case 'sprout':
       return pair('完成1关解锁', rounds, 1);
+    case 'perfect-stage':
+      return '十题全对解锁 (0/1)';
+    case 'retry-heart':
+      return '再试一次解锁 (0/1)';
+    case 'flawless':
+      return '零错误解锁 (0/1)';
+    case 'two-stars':
+      return pair('两颗星解锁', Math.max(stars(1), stars(2), stars(3), stars(4)), 2);
+    case 'three-stars':
+      return pair('三颗星解锁', Math.max(stars(1), stars(2), stars(3), stars(4)), 3);
+    case 'today-30':
+      return pair('今天30题解锁', todayCorrect(save.rounds), 30);
+    case 'today-60':
+      return pair('今天60题解锁', todayCorrect(save.rounds), 60);
     case 'streak-5':
       return pair('连对5题解锁', streak, 5);
     case 'streak-10':
@@ -1080,7 +1106,7 @@ function unlockHint(def: CardDef, session: GameSession): string {
     case 'all-diff':
       return `四个难度解锁 ${[1, 2, 3, 4].filter((id) => played(id as Difficulty) > 0).length}/4`;
     default:
-      return def.condition;
+      return def.condition.includes('解锁') ? def.condition : `${def.condition}解锁 (0/1)`;
   }
 }
 
