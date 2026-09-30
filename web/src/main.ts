@@ -3,6 +3,7 @@ import { WebAudioPlayer } from './game/audio';
 import { GameSession } from './game/session';
 import { localStore } from './game/storage';
 import { Stage } from './render/stage';
+import { preloadArt } from './game/cardFaces';
 import { mountApp } from './ui/app';
 
 const canvas = document.querySelector('#stage');
@@ -19,6 +20,7 @@ try {
   const stage = new Stage(canvas);
   const session = new GameSession(localStore(), audio);
   mountApp(session, stage);
+  preloadArt();
   canvas.dataset.ready = '1';
 } catch (error) {
   const app = document.querySelector('#app');

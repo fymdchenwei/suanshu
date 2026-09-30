@@ -1,5 +1,6 @@
 import { Difficulty, type Difficulty as DifficultyId } from '../engine/questionEngine';
-import { LEGACY_STICKERS, legacyCardId, type EarnedCard } from './cards';
+import { LEGACY_STICKERS, grantsFor, historySnapshot, legacyCardId, mapSavedCardId, type EarnedCard } from './cards';
+import { localDateKey, progressFromSave, trailingThreeStarRounds } from './progress';
 
 export interface RoundRecord {
   id: string;
@@ -34,6 +35,9 @@ export interface SaveData {
   bests: Partial<Record<DifficultyId, DifficultyBest>>;
   cumulativeFirstTry: number;
   bestStreak: number;
+  stagesCompleted: number;
+  threeStarStreak: number;
+  playDates: string[];
 }
 
 export interface Store {
@@ -53,6 +57,9 @@ export function defaultSave(): SaveData {
     bests: {},
     cumulativeFirstTry: 0,
     bestStreak: 0,
+    stagesCompleted: 0,
+    threeStarStreak: 0,
+    playDates: [],
   };
 }
 
@@ -67,9 +74,14 @@ export function normalize(raw: unknown): SaveData {
   base.bestStreak = clampInt(source.bestStreak);
   base.stickers = Array.isArray(source.stickers) ? source.stickers.filter(isSticker).slice(0, 15) : [];
   base.cards = Array.isArray(source.cards)
-    ? source.cards.filter(isCard).slice(0, 80).map(cleanCard)
+    ? source.cards.filter(isCard).slice(0, 100).map(cleanCard)
     : [];
   base.rounds = Array.isArray(source.rounds) ? source.rounds.filter(isRound).slice(0, 40) : [];
+  base.playDates = Array.isArray(source.playDates)
+    ? source.playDates.filter((date) => typeof date === 'string' && date.length > 0).slice(-120)
+    : [];
+  base.stagesCompleted = clampInt(source.stagesCompleted);
+  base.threeStarStreak = clampInt(source.threeStarStreak);
   if (source.bests && typeof source.bests === 'object') {
     for (const difficultyId of [1, 2, 3, 4] as DifficultyId[]) {
       const best = (source.bests as Record<string, DifficultyBest | undefined>)[String(difficultyId)];
@@ -82,6 +94,7 @@ export function normalize(raw: unknown): SaveData {
     }
   }
   migrateStickers(base);
+  migrateCatalog(base, source.stagesCompleted == null, source.threeStarStreak == null, !Array.isArray(source.playDates));
   return base;
 }
 
@@ -93,10 +106,8 @@ export function localStore(): Store {
         if (!raw) return defaultSave();
         const parsed = JSON.parse(raw) as unknown;
         const data = normalize(parsed);
-        const hadCards = Boolean(parsed && typeof parsed === 'object' && Array.isArray((parsed as { cards?: unknown }).cards));
-        if (!hadCards && data.cards.length > 0) {
-          localStorage.setItem(KEY, JSON.stringify(data));
-        }
+        const next = JSON.stringify(data);
+        if (next !== raw) localStorage.setItem(KEY, next);
         return data;
       } catch {
         return defaultSave();
@@ -134,6 +145,56 @@ function migrateStickers(data: SaveData): void {
       earnedAt: sticker.earnedAt,
       achievement: `以前的贴纸：${LEGACY_STICKERS[sticker.id]?.name ?? sticker.id}`,
       correctCount: 0,
+    });
+  }
+}
+
+function migrateCatalog(data: SaveData, fillStages: boolean, fillStreak: boolean, fillDates: boolean): void {
+  const mapped: EarnedCard[] = [];
+  const seen = new Set<string>();
+  for (const card of data.cards) {
+    const id = mapSavedCardId(card.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    mapped.push({ ...card, id });
+  }
+  data.cards = mapped;
+  if (fillStages) data.stagesCompleted = data.rounds.length * 3;
+  else data.stagesCompleted = clampInt(data.stagesCompleted);
+  if (fillStreak) data.threeStarStreak = trailingThreeStarRounds(data.rounds);
+  else data.threeStarStreak = clampInt(data.threeStarStreak);
+  if (fillDates) {
+    data.playDates = [...new Set(data.rounds.map((round) => localDateKey(Date.parse(round.playedAt))))];
+  }
+  const progress = progressFromSave(data, Date.now());
+  const owned = new Set(data.cards.map((card) => card.id));
+  const base = historySnapshot(progress);
+  const extra = grantsFor(base, owned);
+  for (const round of data.rounds) {
+    for (const grant of grantsFor(
+      historySnapshot(progress, {
+        finishedRound: true,
+        stars: round.stars,
+        perfect: round.firstTryCorrect >= 30,
+        difficulty: round.difficulty,
+        roundFirstTry: round.firstTryCorrect,
+        stageFirstTry: round.firstTryCorrect >= 30 ? 10 : 0,
+        stage: 3,
+      }),
+      owned,
+    )) {
+      extra.push(grant);
+    }
+  }
+  const earnedAt = new Date().toISOString();
+  for (const grant of extra) {
+    if (owned.has(grant.id)) continue;
+    owned.add(grant.id);
+    data.cards.push({
+      id: grant.id,
+      earnedAt,
+      achievement: grant.achievement,
+      correctCount: grant.correctCount,
     });
   }
 }

@@ -1,14 +1,20 @@
 import { ALL_DIFFICULTIES, ROUND_SIZE, type Difficulty, type Problem } from '../engine/questionEngine';
-import { cardSvg } from '../game/cardArt';
+import { cardFaceUrl, lockedCardUrl, sceneArt } from '../game/cardFaces';
 import {
   CARDS,
   RARITY_LABEL,
-  correctLabel,
+  SERIES,
+  cardsInSeries,
   formatCardDate,
+  lockedCheer,
   resolveCard,
+  seriesName,
+  unlockStatusWithOwned,
   type CardDef,
   type EarnedCard,
+  type SeriesId,
 } from '../game/cards';
+import { consecutivePlayDays, progressFromSave } from '../game/progress';
 import {
   Copy,
   clock,
@@ -18,8 +24,6 @@ import {
   progress,
   resultBody,
   resultTitle,
-  roundSummary,
-  roundsPlayed,
   shareText,
   shortTitle,
   stageTitle,
@@ -45,14 +49,19 @@ const KEYS: { label: string; name: string; value: number | 'del' | 'ok'; color: 
 ];
 
 export function mountApp(session: GameSession, stage: Stage): void {
+  const scenes = sceneArt();
+  document.documentElement.style.setProperty('--art-home', `url("${scenes.home}")`);
+  document.documentElement.style.setProperty('--art-reveal', `url("${scenes.reveal}")`);
   const root = document.querySelector('#app');
   if (!root) return;
   root.innerHTML = template();
   const ui = bind(root);
   buildDifficulty(ui.diffRow, session);
+  buildPathNodes(ui.pathNodes);
   buildKeypad(ui.keypad, session);
   buildTrack(ui.track);
-  buildAlbum(ui.album);
+  buildSeriesTabs(ui, session);
+  buildAlbum(ui);
 
   bindTap(ui.start, () => session.startRound());
   bindTap(ui.openCards, () => session.openCards());
@@ -74,11 +83,22 @@ export function mountApp(session: GameSession, stage: Stage): void {
     ui.inspectTilt?.();
     ui.inspectTilt = undefined;
   });
+  bindTap(ui.inspectPrev, () => stepInspect(ui, session, -1));
+  bindTap(ui.inspectNext, () => stepInspect(ui, session, 1));
   bindTap(ui.chestCards, () => session.openCards());
   bindTap(ui.pet, () => {
-    stage.petHome();
     session.cheerPet();
     floatHearts(ui.pet);
+    const sprite = ui.pet.querySelector('.island-sprite');
+    if (sprite instanceof HTMLElement) {
+      sprite.classList.remove('is-hop');
+      void sprite.offsetWidth;
+      sprite.classList.add('is-hop');
+    }
+  });
+  ui.pet.querySelector('.island-sprite')?.addEventListener('animationend', (event) => {
+    if (!(event instanceof AnimationEvent) || event.animationName !== 'island-hop') return;
+    if (event.currentTarget instanceof HTMLElement) event.currentTarget.classList.remove('is-hop');
   });
   bindCardTap(ui.cards, (id) => openInspect(ui, id, session));
   ui.album.addEventListener('pointermove', (event) => tiltCard(event));
@@ -153,32 +173,38 @@ export function mountApp(session: GameSession, stage: Stage): void {
 }
 
 function template(): string {
+  const scenes = sceneArt();
   return `
     <section id="home" class="screen screen-home">
       <header class="topbar">
         <div class="pill pill-star" id="stat-correct">${starSvg()}<span id="correct-count">0</span></div>
-        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/27</span></button>
+        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/60</span></button>
         <div class="spacer"></div>
-        <div class="pill pill-flame" id="stat-streak">${flameSvg()}<span id="streak-count">0</span></div>
+        <div class="pill pill-days" id="stat-streak">${flameSvg()}<span id="streak-count">0天</span></div>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </header>
       <div class="home-stage">
         <div id="home-hero" class="home-hero">
-          <button id="pet-dino" type="button" aria-label="摸摸小恐龙"></button>
+          <button id="pet-dino" type="button" aria-label="摸摸小恐龙"><img class="island-sprite" src="${scenes.island}" alt="" draggable="false"></button>
         </div>
         <div class="home-path">
-          <div class="path-sky" aria-hidden="true">
-            <div class="rainbow"></div>
-            <i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i>
-            <i class="twinkle t1"></i><i class="twinkle t2"></i><i class="twinkle t3"></i><i class="twinkle t4"></i>
+          <div class="path-play">
+            <div class="path-board" id="path-nodes">
+              <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <pattern id="checks" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <rect width="8" height="8" fill="#ffb07a"/>
+                    <rect width="4" height="4" fill="#ff8eb8"/>
+                    <rect x="4" y="4" width="4" height="4" fill="#ff8eb8"/>
+                  </pattern>
+                </defs>
+                <path class="trail-edge" d="M16 86 C 42 84, 58 62, 48 48 S 70 28, 62 16 S 88 8, 90 14" />
+                <path class="trail-core" stroke="url(#checks)" d="M16 86 C 42 84, 58 62, 48 48 S 70 28, 62 16 S 88 8, 90 14" />
+              </svg>
+            </div>
+            <div class="diff-rail" id="diff-row"></div>
           </div>
-          <div class="path-board" id="diff-row">
-            <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M22 82 C 48 84, 62 68, 78 60 S 48 36, 30 28 S 62 8, 80 14" />
-            </svg>
-          </div>
-          <button class="start" id="start" type="button">${Copy.start}</button>
-          <p class="home-note" id="home-note"></p>
+          <button class="start" id="start" type="button"><span class="start-star" aria-hidden="true">★</span>${Copy.start}<span class="start-spark" aria-hidden="true">✦</span></button>
         </div>
       </div>
     </section>
@@ -230,10 +256,12 @@ function template(): string {
     <section id="cards" class="screen screen-cards" hidden>
       <div class="sheet can-scroll">
         <div class="sheet-head">
-          <button class="icon-btn wide" id="close-cards" type="button">${Copy.back}</button>
-          <h1>${Copy.cardBook}</h1>
-          <p id="collected-label"></p>
+          <button class="back-round" id="close-cards" type="button" aria-label="${Copy.back}">←</button>
+          <h1 class="album-title">我的卡片</h1>
+          <p class="heart-progress" id="collected-label"></p>
         </div>
+        <div class="series-tabs" id="series-tabs"></div>
+        <p class="series-count" id="series-count">本系列 0/12</p>
         <div class="album" id="album"></div>
         <div class="legacy" id="legacy" hidden></div>
       </div>
@@ -242,14 +270,15 @@ function template(): string {
       <div class="modal-card chest-modal">
         <div class="chest-rays" aria-hidden="true"></div>
         <div class="chest-pop" aria-hidden="true">${confettiBits()}</div>
-        <h2 id="chest-title">${Copy.newCard}</h2>
+        <h2 id="chest-title" class="ribbon-title"><span>${Copy.newCard}</span></h2>
         <div class="chest-stage">
-          <div class="chest-dino" aria-hidden="true">${cheerDinoSvg()}</div>
+          <div class="chest-dino" aria-hidden="true"><img src="${scenes.cheer}" alt="" draggable="false"></div>
           <div id="reveal-card" class="reveal-card"></div>
-          <div class="chest-bubble">
-            <p id="chest-copy"></p>
-            <p id="chest-meta"></p>
+          <div class="chest-bubble" id="chest-bubble">
+            <p class="line-pink">太棒啦</p>
+            <p class="line-blue" id="chest-copy">继续加油！</p>
           </div>
+          <p id="chest-meta" hidden></p>
         </div>
         <div class="modal-actions">
           <button class="btn btn-green" id="dismiss-chest" type="button">${Copy.takeCard}</button>
@@ -259,10 +288,17 @@ function template(): string {
     </div>
     <div id="inspect" class="modal" hidden role="dialog" aria-modal="true">
       <div class="inspect-wrap">
-        <div id="inspect-card" class="inspect-card"></div>
-        <div class="inspect-side">
-          <p id="inspect-say"></p>
-          <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
+        <div class="inspect-body">
+          <div id="inspect-card" class="inspect-card"></div>
+          <div class="inspect-copy can-scroll">
+            <p id="inspect-say"></p>
+            <div id="inspect-meta"></div>
+          </div>
+        </div>
+        <div class="inspect-nav">
+          <button class="btn btn-blue" id="inspect-prev" type="button">上一张</button>
+          <button class="btn btn-green" id="close-inspect" type="button">${Copy.back}</button>
+          <button class="btn btn-blue" id="inspect-next" type="button">下一张</button>
         </div>
       </div>
     </div>
@@ -293,7 +329,10 @@ interface Ui {
   diffRow: HTMLElement;
   start: HTMLButtonElement;
   pet: HTMLButtonElement;
-  homeNote: HTMLElement;
+  pathNodes: HTMLElement;
+  seriesTabs: HTMLElement;
+  seriesCount: HTMLElement;
+  seriesId: SeriesId;
   exit: HTMLButtonElement;
   stageLabel: HTMLElement;
   progress: HTMLElement;
@@ -324,12 +363,16 @@ interface Ui {
   revealCard: HTMLElement;
   chestTitle: HTMLElement;
   chestCopy: HTMLElement;
+  chestBubble: HTMLElement;
   chestMeta: HTMLElement;
   dismissChest: HTMLButtonElement;
   chestCards: HTMLButtonElement;
   inspect: HTMLElement;
   inspectCard: HTMLElement;
   inspectSay: HTMLElement;
+  inspectMeta: HTMLElement;
+  inspectPrev: HTMLButtonElement;
+  inspectNext: HTMLButtonElement;
   closeInspect: HTMLButtonElement;
   inspectTilt?: () => void;
   exitModal: HTMLElement;
@@ -357,7 +400,10 @@ function bind(root: ParentNode): Ui {
     diffRow: q('diff-row'),
     start: q('start'),
     pet: q('pet-dino'),
-    homeNote: q('home-note'),
+    pathNodes: q('path-nodes'),
+    seriesTabs: q('series-tabs'),
+    seriesCount: q('series-count'),
+    seriesId: 'partners',
     exit: q('exit'),
     stageLabel: q('stage-label'),
     progress: q('progress'),
@@ -388,12 +434,16 @@ function bind(root: ParentNode): Ui {
     revealCard: q('reveal-card'),
     chestTitle: q('chest-title'),
     chestCopy: q('chest-copy'),
+    chestBubble: q('chest-bubble'),
     chestMeta: q('chest-meta'),
     dismissChest: q('dismiss-chest'),
     chestCards: q('chest-cards'),
     inspect: q('inspect'),
     inspectCard: q('inspect-card'),
     inspectSay: q('inspect-say'),
+    inspectMeta: q('inspect-meta'),
+    inspectPrev: q('inspect-prev'),
+    inspectNext: q('inspect-next'),
     closeInspect: q('close-inspect'),
     exitModal: q('exit-modal'),
     keepPlaying: q('keep-playing'),
@@ -551,8 +601,9 @@ function placeQuizStage(session: GameSession): void {
     canvas.style.pointerEvents = 'none';
     return true;
   };
+  canvas.style.visibility = session.screen === 'home' ? 'hidden' : '';
   if (session.screen === 'quiz' && pin(document.querySelector('#quiz-island'), '10px', '2')) return;
-  if (session.screen === 'home' && pin(document.querySelector('#home-hero'), '28px', '0')) return;
+  if (session.screen === 'home') return;
   canvas.style.left = '0';
   canvas.style.top = '0';
   canvas.style.width = '100%';
@@ -574,22 +625,40 @@ function buildTrack(track: HTMLElement): void {
   }
 }
 
-function buildAlbum(album: HTMLElement): void {
-  for (const def of CARDS) {
+function buildSeriesTabs(ui: Ui, session: GameSession): void {
+  for (const series of SERIES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'series-tab';
+    button.dataset.series = series.id;
+    button.textContent = series.name;
+    bindTap(button, () => {
+      ui.seriesId = series.id;
+      buildAlbum(ui);
+      sync(ui, session);
+    });
+    ui.seriesTabs.append(button);
+  }
+}
+
+function buildAlbum(ui: Ui): void {
+  ui.album.replaceChildren();
+  ui.album.dataset.series = ui.seriesId;
+  for (const def of cardsInSeries(ui.seriesId)) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `tc locked rarity-${def.rarity}`;
     button.dataset.card = def.id;
     button.innerHTML = `
       <div class="tc-tilt">
-        <div class="tc-art">${cardSvg(def)}</div>
+        <div class="tc-art">${cardPicture(def, true, true)}</div>
         <div class="foil"></div>
         <b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b>
-        <strong class="tc-name">${def.name}</strong>
+        <strong class="tc-name">神秘卡片</strong>
         <em class="tc-detail"></em>
         <small class="tc-foot"></small>
       </div>`;
-    album.append(button);
+    ui.album.append(button);
   }
 }
 
@@ -603,23 +672,22 @@ function sync(ui: Ui, session: GameSession): void {
   const starTotal = session.save.rounds.reduce((sum, round) => sum + round.stars, 0);
   ui.correctCount.textContent = String(starTotal);
   ui.cardCount.textContent = `${catalogOwned}/${CARDS.length}`;
-  ui.streakCount.textContent = String(session.save.bestStreak);
+  const days = consecutivePlayDays(session.save.playDates, Date.now());
+  ui.streakCount.textContent = `${days}天`;
   ui.correctCount.parentElement?.setAttribute('aria-label', `星星 ${starTotal}`);
-  ui.streakCount.parentElement?.setAttribute('aria-label', `最高连对 ${session.save.bestStreak} 题`);
-  ui.homeNote.textContent = `${detail(session.difficulty)} · ${roundsPlayed(session.roundsPlayed)}${lastRoundNote(session)}`;
+  ui.streakCount.parentElement?.setAttribute('aria-label', `连续 ${days} 天`);
   ui.openCards.setAttribute('aria-label', `${Copy.cardBook}，${collectedCount(catalogOwned, CARDS.length)}`);
 
   for (const button of ui.diffRow.querySelectorAll<HTMLButtonElement>('.diff')) {
     const difficulty = Number(button.dataset.difficulty) as Difficulty;
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
-    const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
     const open = difficultyOpen(session, difficulty);
     const selected = open && session.difficulty === difficulty;
     button.classList.toggle('selected', selected);
     button.classList.toggle('locked', !open);
-    const stars = cleared ? `<span class="node-stars">${'★'.repeat(best)}${'☆'.repeat(Math.max(0, 3 - best))}</span>` : '';
+    const icons = ['★', '+1', '↑', '🔥'];
     const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
-    const markup = `<span class="node-arrow" aria-hidden="true">▼</span><span class="node-face">${shortTitle(difficulty)}</span>${stars}${lock}`;
+    const markup = `<span class="diff-icon" aria-hidden="true">${icons[difficulty - 1] ?? '★'}</span><span class="diff-name">${shortTitle(difficulty)}</span>${lock}`;
     const view = `${markup}|${selected}|${open}`;
     if (button.dataset.view !== view) {
       button.dataset.view = view;
@@ -635,6 +703,26 @@ function sync(ui: Ui, session: GameSession): void {
     else button.removeAttribute('aria-selected');
   }
 
+  for (const node of ui.pathNodes.querySelectorAll<HTMLElement>('.level-node')) {
+    const difficulty = Number(node.dataset.difficulty) as Difficulty;
+    const best = session.bestFor(difficulty)?.bestStars ?? 0;
+    const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
+    const open = difficultyOpen(session, difficulty);
+    const selected = open && session.difficulty === difficulty;
+    node.classList.toggle('cleared', cleared);
+    node.classList.toggle('current', selected && !cleared);
+    node.classList.toggle('locked', !open);
+    const stars = cleared
+      ? `<span class="node-stars">${Array.from({ length: 3 }, (_, index) => `<i class="${index < best ? 'on' : ''}">★</i>`).join('')}</span>`
+      : '';
+    const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
+    const arrow = selected ? '<span class="node-arrow" aria-hidden="true">▼</span>' : '';
+    const markup = `<span class="node-num">${difficulty}</span>${lock}${arrow}${stars}`;
+    if (node.dataset.view !== markup) {
+      node.dataset.view = markup;
+      node.innerHTML = markup;
+    }
+  }
   for (const button of ui.mutes) {
     const label = session.isMuted ? Copy.unmute : Copy.mute;
     if (button.dataset.view !== label) {
@@ -674,10 +762,10 @@ function sync(ui: Ui, session: GameSession): void {
   ui.scoreText.innerHTML = `<span class="got">${session.firstTryCorrect}</span><span class="slash">/</span><span class="total">${ROUND_SIZE}</span>`;
   ui.timeText.textContent = clock(session.duration);
   ui.streakText.textContent = `${Copy.bestStreakLabel} ${session.bestStreakThisRound}`;
-  const cheer = session.save.cards.find((card) => card.id === 'cheer-up');
+  const cheer = session.save.cards.find((card) => card.id === 'cheer-lamb');
   ui.consolation.innerHTML = gentle && cheer ? miniCard(cheer) : '';
   ui.earnedRow.innerHTML = session.earnedThisRound
-    .filter((card) => card.id !== 'cheer-up' || !gentle)
+    .filter((card) => card.id !== 'cheer-lamb' || !gentle)
     .slice(0, 4)
     .map((card) => {
       const def = resolveCard(card.id);
@@ -686,11 +774,18 @@ function sync(ui: Ui, session: GameSession): void {
     .join('');
 
   const owned = new Map(session.save.cards.map((card) => [card.id, card]));
+  const catalogIds = session.save.cards.map((card) => card.id);
+  for (const tab of ui.seriesTabs.querySelectorAll<HTMLButtonElement>('.series-tab')) {
+    tab.classList.toggle('on', tab.dataset.series === ui.seriesId);
+  }
+  const seriesCards = cardsInSeries(ui.seriesId);
+  const seriesOwned = seriesCards.filter((card) => owned.has(card.id)).length;
+  ui.seriesCount.textContent = `本系列 ${seriesOwned}/12`;
   for (const button of ui.album.querySelectorAll<HTMLButtonElement>('.tc')) {
     const id = button.dataset.card ?? '';
     const def = resolveCard(id);
     if (!def) continue;
-    paintOwned(button, def, owned.get(id), session);
+    paintOwned(button, def, owned.get(id), session, catalogIds);
   }
   const legacy = session.save.cards.filter((card) => card.id.startsWith('legacy:'));
   ui.legacy.hidden = legacy.length === 0;
@@ -699,11 +794,11 @@ function sync(ui: Ui, session: GameSession): void {
         .map((card) => {
           const def = resolveCard(card.id);
           if (!def) return '';
-          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)} · ${correctLabel(card.correctCount, true)}</small></div></button>`;
+          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)}</small></div></button>`;
         })
         .join('')}</div>`
     : '';
-  ui.collectedLabel.textContent = collectedCount(catalogOwned, CARDS.length);
+  ui.collectedLabel.textContent = `${catalogOwned}/${CARDS.length}`;
 
   show(ui.chest, session.chest !== null && session.screen === 'quiz');
   if (session.chest) paintChest(ui, session);
@@ -716,20 +811,24 @@ function sync(ui: Ui, session: GameSession): void {
   }
 }
 
-function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard | undefined, session: GameSession): void {
+function paintOwned(
+  button: HTMLButtonElement,
+  def: CardDef,
+  earned: EarnedCard | undefined,
+  session: GameSession,
+  ownedIds: string[],
+): void {
   button.classList.toggle('locked', !earned);
-  const hint = unlockHint(def, session);
-  button.setAttribute('aria-label', earned ? `${def.name}，${def.line}` : `${def.name}，${Copy.lockedCard}，${hint}`);
+  const hint = unlockHint(def, session, ownedIds);
+  button.setAttribute('aria-label', earned ? `${def.name}，${def.line}` : `神秘卡片，${Copy.lockedCard}，${hint}`);
   const name = button.querySelector('.tc-name');
   const detail = button.querySelector('.tc-detail');
   const foot = button.querySelector('.tc-foot');
   if (name) name.textContent = earned ? def.name : '神秘卡片';
-  if (detail) detail.textContent = earned ? earned.achievement : hint;
-  if (foot) {
-    foot.textContent = earned
-      ? `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}`
-      : '未收集';
-  }
+  if (detail) detail.textContent = earned ? '' : hint;
+  if (foot) foot.textContent = '';
+  const face = button.querySelector<HTMLImageElement>('.tc-art img');
+  if (face) face.src = earned ? cardFaceUrl(def.id) : lockedCardUrl();
 }
 
 function paintChest(ui: Ui, session: GameSession): void {
@@ -743,43 +842,56 @@ function paintChest(ui: Ui, session: GameSession): void {
   ui.chestCards.hidden = !showing;
   if (grant && def && earned) {
     ui.revealCard.className = `reveal-card rarity-${def.rarity}`;
-    ui.revealCard.innerHTML = cardShell(def, earned);
-    ui.chestTitle.textContent = Copy.newCard;
-    ui.chestCopy.textContent = def.line;
-    ui.chestMeta.textContent = `${earned.achievement} · ${formatCardDate(earned.earnedAt)}`;
-    if (chest.banked > 0 && chest.cursor === chest.cards.length - 1) {
-      ui.chestMeta.textContent += ` · 另外 ${chest.banked} 张已放进卡片本`;
-    }
+    ui.revealCard.innerHTML = chestCardShell(def);
+    const title = ui.chestTitle.querySelector('span');
+    if (title) title.textContent = Copy.newCard;
+    const pink = ui.chestBubble.querySelector('.line-pink');
+    if (pink) pink.textContent = '太棒啦';
+    ui.chestCopy.textContent = '继续加油！';
+    ui.chestMeta.textContent = '';
   } else {
     ui.revealCard.innerHTML = '';
     ui.chestTitle.textContent = Copy.chestEmptyTitle;
+    const pink = ui.chestBubble.querySelector('.line-pink');
+    if (pink) pink.textContent = '';
     ui.chestCopy.textContent = Copy.chestEmptyDetail;
     ui.chestMeta.textContent = '';
   }
-  const last = !grant || chest.cursor >= chest.cards.length - 1;
-  ui.dismissChest.textContent = last && chest.isFinal ? Copy.seeScore : Copy.takeCard;
+  ui.dismissChest.textContent = Copy.takeCard;
 }
 
-function cardShell(def: CardDef, earned: EarnedCard): string {
-  return `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${earned.achievement}</em><small class="tc-foot">${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}</small></div>`;
+function chestCardShell(def: CardDef): string {
+  return `<div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><strong class="tc-name">${def.name}</strong><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b></div>`;
+}
+
+function cardPicture(def: CardDef, locked = false, lazy = false): string {
+  const src = locked ? lockedCardUrl() : cardFaceUrl(def.id);
+  const loading = lazy ? ' loading="lazy"' : '';
+  return `<img src="${src}" alt="" draggable="false" decoding="async"${loading}>`;
 }
 
 function miniCard(earned: EarnedCard): string {
   const def = resolveCard(earned.id);
   if (!def) return '';
-  return `<div class="mini-card rarity-${def.rarity}">${cardSvg(def)}<div><strong>${def.name}</strong><em>${earned.achievement}</em></div></div>`;
+  return `<div class="mini-card rarity-${def.rarity}">${cardPicture(def)}<div><strong>${def.name}</strong><em>${earned.achievement}</em></div></div>`;
 }
 
 function openInspect(ui: Ui, id: string, session: GameSession): void {
   const def = resolveCard(id);
   if (!def) return;
+  ui.inspect.dataset.card = id;
   const earned = session.save.cards.find((card) => card.id === id);
-  const hint = unlockHint(def, session);
+  const ownedIds = session.save.cards.map((card) => card.id);
+  const hint = unlockHint(def, session, ownedIds);
+  const status = unlockStatusWithOwned(def.id, progressFromSave(session.save, Date.now()), ownedIds);
   ui.inspectCard.className = `inspect-card rarity-${def.rarity}${earned ? '' : ' locked'}`;
-  ui.inspectSay.textContent = earned ? def.line : hint;
+  ui.inspectSay.textContent = earned ? def.line : lockedCheer(def, status);
+  ui.inspectMeta.innerHTML = earned
+    ? `<p>${def.story}</p><p>${seriesName(def.series)} · ${RARITY_LABEL[def.rarity]} · ${formatCardDate(earned.earnedAt)}</p><p>获得条件：${def.condition}</p>`
+    : `<p>神秘卡片</p><p>${hint}</p><p>获得条件：${def.condition}</p>`;
   ui.inspectCard.innerHTML = earned
-    ? cardShell(def, earned)
-    : `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">神秘卡片</strong><em class="tc-detail">${hint}</em><small class="tc-foot">还没收集到</small></div>`;
+    ? chestCardShell(def)
+    : `<div class="tc-tilt"><div class="tc-art">${cardPicture(def, true)}</div><strong class="tc-name">神秘卡片</strong><em class="tc-detail">${hint}</em></div>`;
   ui.inspect.hidden = false;
   ui.inspectTilt?.();
   ui.inspectTilt = bindInspectTilt(ui.inspectCard);
@@ -912,6 +1024,7 @@ function flyClone(source: HTMLElement, target: HTMLElement): void {
   if (from.width === 0 || to.width === 0) return;
   const flyer = source.cloneNode(true) as HTMLElement;
   flyer.removeAttribute('id');
+  for (const node of flyer.querySelectorAll('.tc-name, .tc-detail, .tc-foot, .tc-rarity')) node.remove();
   flyer.classList.add('flyer');
   flyer.style.left = `${from.left}px`;
   flyer.style.top = `${from.top}px`;
@@ -942,10 +1055,22 @@ async function share(session: GameSession): Promise<void> {
   }
 }
 
-function lastRoundNote(session: GameSession): string {
-  const last = session.save.rounds[0];
-  if (!last) return '';
-  return ` · ${roundSummary(last.firstTryCorrect, last.total, last.stars)}`;
+function buildPathNodes(board: HTMLElement): void {
+  for (const difficulty of ALL_DIFFICULTIES) {
+    const node = document.createElement('div');
+    node.className = 'level-node';
+    node.dataset.difficulty = String(difficulty);
+    node.setAttribute('aria-hidden', 'true');
+    board.append(node);
+  }
+}
+
+function stepInspect(ui: Ui, session: GameSession, delta: number): void {
+  const row = cardsInSeries(ui.seriesId);
+  const current = ui.inspect.dataset.card ?? row[0]?.id ?? '';
+  const index = Math.max(0, row.findIndex((card) => card.id === current));
+  const next = row[(index + delta + row.length) % row.length];
+  if (next) openInspect(ui, next.id, session);
 }
 
 function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
@@ -954,56 +1079,9 @@ function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
   return (session.bestFor(previous)?.roundsPlayed ?? 0) > 0;
 }
 
-function unlockHint(def: CardDef, session: GameSession): string {
-  const save = session.save;
-  const rounds = save.rounds.length;
-  const streak = save.bestStreak;
-  const correct = save.cumulativeFirstTry;
-  const played = (id: Difficulty) => save.bests[id]?.roundsPlayed ?? 0;
-  const stars = (id: Difficulty) => save.bests[id]?.bestStars ?? 0;
-  const pair = (label: string, have: number, need: number) => `${label} ${Math.min(have, need)}/${need}`;
-  switch (def.id) {
-    case 'sprout':
-      return pair('完成1关解锁', rounds, 1);
-    case 'streak-5':
-      return pair('连对5题解锁', streak, 5);
-    case 'streak-10':
-      return pair('连对10题解锁', streak, 10);
-    case 'streak-15':
-      return pair('连对15题解锁', streak, 15);
-    case 'one-breath':
-    case 'cheer-up':
-      return pair('完成1轮解锁', rounds, 1);
-    case 'easy-clear':
-      return pair('轻松通关解锁', played(1), 1);
-    case 'carry-clear':
-      return pair('进位通关解锁', played(2), 1);
-    case 'advanced-clear':
-      return pair('进阶通关解锁', played(3), 1);
-    case 'challenge-clear':
-    case 'night-sky':
-      return pair('挑战通关解锁', played(4), 1);
-    case 'challenge-3':
-      return `挑战3星解锁 ${Math.min(stars(4), 3)}/3`;
-    case 'melon-sweet':
-      return `轻松3星解锁 ${Math.min(stars(1), 3)}/3`;
-    case 'correct-50':
-      return pair('答对50题解锁', correct, 50);
-    case 'correct-100':
-      return pair('答对100题解锁', correct, 100);
-    case 'correct-300':
-      return pair('答对300题解锁', correct, 300);
-    case 'panda-3':
-      return pair('完成3轮解锁', rounds, 3);
-    case 'panda-5':
-      return pair('完成5轮解锁', rounds, 5);
-    case 'guardian-10':
-      return pair('完成10轮解锁', rounds, 10);
-    case 'all-diff':
-      return `四个难度解锁 ${[1, 2, 3, 4].filter((id) => played(id as Difficulty) > 0).length}/4`;
-    default:
-      return def.condition;
-  }
+function unlockHint(def: CardDef, session: GameSession, ownedIds: string[]): string {
+  if (def.id.startsWith('legacy:')) return '以前的贴纸';
+  return unlockStatusWithOwned(def.id, progressFromSave(session.save, Date.now()), ownedIds).text;
 }
 
 function floatHearts(anchor: HTMLElement): void {
@@ -1021,31 +1099,10 @@ function floatHearts(anchor: HTMLElement): void {
 }
 
 function confettiBits(): string {
-  return Array.from({ length: 14 }, (_, index) => `<i style="--i:${index}"></i>`).join('');
-}
-
-function cheerDinoSvg(): string {
-  return `<svg viewBox="0 0 120 150" aria-hidden="true">
-    <ellipse cx="60" cy="132" rx="36" ry="10" fill="#7dce4e"/>
-    <ellipse cx="34" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
-    <ellipse cx="86" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
-    <ellipse cx="60" cy="108" rx="28" ry="22" fill="#8ee06a"/>
-    <ellipse cx="60" cy="112" rx="16" ry="12" fill="#fff6ea"/>
-    <ellipse cx="40" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
-    <ellipse cx="80" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
-    <ellipse cx="28" cy="100" rx="8" ry="7" fill="#8ee06a"/>
-    <ellipse cx="96" cy="86" rx="8" ry="7" fill="#8ee06a" transform="rotate(-30 96 86)"/>
-    <ellipse cx="60" cy="62" rx="32" ry="30" fill="#8ee06a"/>
-    <ellipse cx="46" cy="60" rx="10" ry="12" fill="#fff"/>
-    <ellipse cx="74" cy="60" rx="10" ry="12" fill="#fff"/>
-    <ellipse cx="47" cy="62" rx="5" ry="6" fill="#6b4226"/>
-    <ellipse cx="75" cy="62" rx="5" ry="6" fill="#6b4226"/>
-    <circle cx="50" cy="58" r="2.2" fill="#fff"/>
-    <circle cx="78" cy="58" r="2.2" fill="#fff"/>
-    <ellipse cx="34" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
-    <ellipse cx="86" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
-    <path d="M50 76 Q60 86 70 76" fill="none" stroke="#5a3a28" stroke-width="2.4" stroke-linecap="round"/>
-  </svg>`;
+  return Array.from({ length: 22 }, (_, index) => {
+    const dx = (index % 2 === 0 ? -1 : 1) * (18 + ((index * 13) % 48));
+    return `<i style="--i:${index};--dx:${dx}px"></i>`;
+  }).join('');
 }
 
 function starSvg(): string {
@@ -1053,7 +1110,7 @@ function starSvg(): string {
 }
 
 function flameSvg(): string {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff6b57" d="M12 2s2 3.2 2 5.2c0 1.2-.6 1.8-1.2 1.2.8 2.4 3.2 3.2 3.2 6.2A4.8 4.8 0 0 1 7 15.4C7 12 10 11 10 8.2 10 5.6 12 2 12 2z"/></svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff8a2a" d="M12 2c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 1-5 1 1 2 1 3-3z"/><path fill="#ffe14a" d="M12 10c.6 1.4 2 2 2 3.6a2 2 0 0 1-4 0c0-1 .6-1.6.8-2.6.4.6.8.6 1.2-1z"/></svg>';
 }
 
 function bookSvg(): string {

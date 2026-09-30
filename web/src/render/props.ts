@@ -10,6 +10,7 @@ import {
   MeshBasicMaterial,
   MeshStandardMaterial,
   Shape,
+  OctahedronGeometry,
   SphereGeometry,
   TorusGeometry,
 } from 'three';
@@ -114,12 +115,12 @@ export function createHouse(): Group {
   return group;
 }
 
-export function createMushroom(scale = 1): Group {
+export function createMushroom(scale = 1, capColor = 0xff5d6e): Group {
   const group = new Group();
   const stem = new Mesh(new CapsuleGeometry(0.055, 0.1, 3, 8), mat(0xfff3dd, 0.48));
   stem.position.y = 0.12;
   group.add(stem);
-  const cap = new Mesh(new SphereGeometry(0.16, 16, 12), mat(0xff5d6e, 0.38));
+  const cap = new Mesh(new SphereGeometry(0.16, 16, 12), mat(capColor, 0.38));
   cap.scale.y = 0.55;
   cap.position.y = 0.22;
   cap.castShadow = true;
@@ -180,7 +181,7 @@ export function createRainbow(): Group {
   colors.forEach((color, index) => {
     const arc = new Mesh(
       new TorusGeometry(1.85 - index * 0.08, 0.04, 8, 48, Math.PI),
-      new MeshBasicMaterial({ color }),
+      new MeshBasicMaterial({ color, transparent: true, opacity: 0.58 }),
     );
     arc.rotation.x = Math.PI / 2.35;
     arc.rotation.z = Math.PI;
@@ -234,10 +235,10 @@ export interface ChestRig {
   lid: Group;
 }
 
-export function createChest(): ChestRig {
+export function createChest(options: { open?: boolean; purple?: boolean } = {}): ChestRig {
   const group = new Group();
-  const wood = mat(0xe0943a, 0.48);
-  const woodDark = mat(0xc56a22, 0.5);
+  const wood = options.purple ? mat(0x7a4ad8, 0.5) : mat(0xe0943a, 0.48);
+  const woodDark = options.purple ? mat(0x5b32b0, 0.5) : mat(0xc56a22, 0.5);
   const gold = mat(0xffd15c, 0.28, 0.45, 0xffc94a);
   const body = new Mesh(new BoxGeometry(0.72, 0.4, 0.48), wood);
   body.position.y = 0.22;
@@ -258,7 +259,13 @@ export function createChest(): ChestRig {
   const lidBand = new Mesh(new BoxGeometry(0.76, 0.05, 0.12), gold);
   lidBand.position.set(0, 0.12, 0.22);
   lid.add(lidBand);
+  if (options.open) lid.rotation.x = -1.15;
   group.add(lid);
+  if (options.purple) {
+    const star = new Mesh(new OctahedronGeometry(0.11, 0), new MeshBasicMaterial({ color: 0xffe14a }));
+    star.position.set(0, 0.62, 0.08);
+    group.add(star);
+  }
   return { group, lid };
 }
 

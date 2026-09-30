@@ -1,43 +1,18 @@
-export type Rarity = 'common' | 'rare' | 'epic' | 'legend';
+import { CARD_COPY } from './cardsCopy';
+import type { PlayerProgress } from './progress';
 
-export type ArtKind =
-  | 'dino'
-  | 'dino-cape'
-  | 'dino-crown'
-  | 'dino-wizard'
-  | 'dino-astro'
-  | 'dino-heart'
-  | 'panda'
-  | 'rocket'
-  | 'rainbow'
-  | 'chest'
-  | 'trophy'
-  | 'flower'
-  | 'moon'
-  | 'sun'
-  | 'heart'
-  | 'mushroom'
-  | 'butterfly'
-  | 'melon'
-  | 'island'
-  | 'star'
-  | 'fireworks'
-  | 'bridge'
-  | 'castle'
-  | 'medal';
+export type Rarity = 'common' | 'rare' | 'epic' | 'legend';
+export type SeriesId = 'partners' | 'streak' | 'islands' | 'daily' | 'friends';
 
 export interface CardDef {
   id: string;
   name: string;
   rarity: Rarity;
+  series: SeriesId;
   condition: string;
-  /** A short cheer shown when this card is opened. */
+  story: string;
   line: string;
-  art: ArtKind;
-  sky: [string, string];
-  ground: string;
-  accent: string;
-  accent2: string;
+  locked: string;
 }
 
 export interface EarnedCard {
@@ -56,8 +31,6 @@ export interface CardGrant {
 export interface AwardSnapshot {
   stage: number;
   stageFirstTry: number;
-  streakHit5: boolean;
-  streakHit10: boolean;
   bestStreak: number;
   hadRetry: boolean;
   roundFirstTry: number;
@@ -68,7 +41,12 @@ export interface AwardSnapshot {
   todayFirstTry: number;
   cumulativeFirstTry: number;
   roundsCompleted: number;
-  difficultiesCleared: number[];
+  stagesCompleted: number;
+  roundsByDifficulty: number[];
+  bestStarsByDifficulty: number[];
+  threeStarStreak: number;
+  consecutiveDays: number;
+  roundsToday: number;
 }
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -78,118 +56,152 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   legend: '传说',
 };
 
-const RARITY_RANK: Record<Rarity, number> = {
-  legend: 0,
-  epic: 1,
-  rare: 2,
-  common: 3,
-};
-
-const CHEER: Record<string, string> = {
-  sprout: '第一关完成啦，萌芽小龙为你鼓掌！',
-  'perfect-stage': '这一关十题全对，奖章亮晶晶！',
-  'streak-5': '你连对了5题，太棒啦！',
-  'streak-10': '连对十题，彩虹都为你亮起来！',
-  'streak-15': '连对十五题，你是闪电小冠军！',
-  'one-breath': '三十题一口气做完，火箭也起飞啦！',
-  flawless: '三十题全部一次答对，皇冠属于你！',
-  'two-stars': '两颗星到手，奖杯为你闪亮！',
-  'three-stars': '三颗星！小恐龙为你欢呼！',
-  'cheer-up': '小恐龙抱一抱，下一轮会更顺！',
-  'easy-clear': '轻松难度通关，草地都变绿啦！',
-  'carry-clear': '进位也难不倒你，小桥为你搭好啦！',
-  'advanced-clear': '进阶难度完成，你又爬上了一座小山！',
-  'challenge-clear': '挑战难度通关，城堡大门为你打开！',
-  'challenge-3': '挑战难度三颗星，你是小岛上的小国王！',
-  'melon-sweet': '轻松难度三颗星，来一口甜甜西瓜！',
-  'today-30': '今天答对三十题，你是今日之星！',
-  'today-60': '今天答对六十题，冠军就是你！',
-  'correct-50': '累计答对五十题，花田为你开花！',
-  'correct-100': '一百题都答对啦，彩虹围着你转！',
-  'correct-300': '三百题！这是传说级的努力！',
-  'panda-3': '完成三轮，熊猫来当你的伙伴！',
-  'panda-5': '完成五轮，熊猫把宝箱推给你！',
-  'guardian-10': '十轮都完成啦，小岛有你守护！',
-  'all-diff': '四个难度都闯过，四季小岛为你换新装！',
-  'night-sky': '挑战难度的夜空里，星星陪你航行！',
-  'retry-heart': '答错也没关系，你又试了一次，真勇敢！',
-};
-
-export const CARDS: CardDef[] = [
-  card('sprout', '萌芽小恐龙', 'common', '完成任意一关', 'dino', ['#8fd4ff', '#fff1b8'], '#7dce4e', '#6ed84a', '#ffb703'),
-  card('perfect-stage', '满分奖章', 'rare', '某一关 10 题都一次答对', 'medal', ['#ffe38a', '#fff7d6'], '#8ed15a', '#ffd15c', '#ff8a3d'),
-  card('streak-5', '火花连击', 'rare', '连对 5 题', 'fireworks', ['#ffd0a8', '#fff0c8'], '#7dce4e', '#ff8a3d', '#ffd15c'),
-  card('streak-10', '彩虹连击', 'epic', '连对 10 题', 'rainbow', ['#9ad7ff', '#ffe1f2'], '#6dce7a', '#ff7eb3', '#7ad0ff'),
-  card('streak-15', '闪电传说', 'legend', '最高连对达到 15 题', 'dino-astro', ['#2a3d88', '#8ec5ff'], '#3f8f62', '#ffe14a', '#7ad0ff'),
-  card('retry-heart', '勇气爱心', 'common', '答错过，但还是完成了一关', 'heart', ['#ffd0e0', '#fff0f6'], '#7dce4e', '#ff6f9a', '#ffd0e0'),
-  card('one-breath', '冲刺火箭', 'rare', '一口气完成一轮 30 题', 'rocket', ['#b7dcff', '#fff6d0'], '#7dce4e', '#ff8a65', '#7eb6ff'),
-  card('flawless', '零失误皇冠', 'legend', '一轮 30 题全部一次答对', 'dino-crown', ['#fff1b0', '#ffe08a'], '#8ed15a', '#ffd15c', '#fff7d2'),
-  card('two-stars', '双星奖杯', 'rare', '一轮得到 2 颗星', 'trophy', ['#d7ecff', '#fff4c8'], '#7dce4e', '#ffd15c', '#7eb6ff'),
-  card('three-stars', '三星领奖台', 'epic', '一轮得到 3 颗星', 'dino-cape', ['#6a3d9a', '#ffb07a'], '#c9894a', '#ffd15c', '#e23d4a'),
-  card('cheer-up', '加油伙伴', 'common', '完成一轮，小恐龙给你打气', 'dino-heart', ['#ffe0c2', '#fff6ea'], '#8ed15a', '#ff8fab', '#ffd08a'),
-  card('easy-clear', '青草地', 'common', '完成轻松难度一轮', 'island', ['#8fd4ff', '#e7ffe8'], '#63c84a', '#7dce4e', '#ffd15c'),
-  card('carry-clear', '进位小桥', 'common', '完成进位难度一轮', 'bridge', ['#ffd39a', '#fff1c9'], '#8ed15a', '#e0893a', '#fff1c2'),
-  card('advanced-clear', '进阶山丘', 'rare', '完成进阶难度一轮', 'flower', ['#b6f0ff', '#e7ffe8'], '#3ec06a', '#ff8fb8', '#ffd15c'),
-  card('challenge-clear', '挑战城堡', 'epic', '完成挑战难度一轮', 'castle', ['#3a4a90', '#b7c0ff'], '#3e8f62', '#c9b0ff', '#ffd15c'),
-  card('challenge-3', '挑战之王', 'legend', '挑战难度得到 3 颗星', 'castle', ['#241848', '#ffb703'], '#2f6e52', '#ffd15c', '#ff7eb3'),
-  card('melon-sweet', '甜甜西瓜', 'rare', '轻松难度得到 3 颗星', 'melon', ['#c8f5ff', '#fff6d8'], '#7dce4e', '#ff5d6e', '#7dce4e'),
-  card('today-30', '今日之星', 'epic', '今天一次答对累计 30 题', 'sun', ['#8fd4ff', '#fff3bf'], '#7dce4e', '#ffd15c', '#ff9a1f'),
-  card('today-60', '今日冠军', 'legend', '今天一次答对累计 60 题', 'sun', ['#ffb347', '#fff1a8'], '#e6a63a', '#ffcf3d', '#fff7d2'),
-  card('correct-50', '花田五十', 'rare', '累计一次答对 50 题', 'flower', ['#ffe1f0', '#fff6ea'], '#7dce4e', '#ff8fb8', '#ffd15c'),
-  card('correct-100', '彩虹百题', 'epic', '累计一次答对 100 题', 'rainbow', ['#c6e6ff', '#ffe8f6'], '#6dce7a', '#b07bff', '#ff8fb8'),
-  card('correct-300', '传说三百', 'legend', '累计一次答对 300 题', 'dino-wizard', ['#1b2458', '#9b8cff'], '#3e6e58', '#c9b0ff', '#ffd15c'),
-  card('panda-3', '熊猫伙伴', 'common', '完成 3 轮', 'panda', ['#d9f3ff', '#fff'], '#7dce4e', '#2a2a2a', '#fff'),
-  card('panda-5', '宝箱熊猫', 'rare', '完成 5 轮', 'chest', ['#ffe7b8', '#fff6ea'], '#c9894a', '#f0b429', '#ff8a3d'),
-  card('guardian-10', '小岛守护', 'epic', '完成 10 轮', 'island', ['#7ecbff', '#d9f8c8'], '#5cba3c', '#37b14a', '#ffd15c'),
-  card('all-diff', '四季小岛', 'legend', '四个难度都完成过一轮', 'island', ['#ffb6d5', '#c6e6ff'], '#7dce4e', '#ff7eb3', '#7ad0ff'),
-  card('night-sky', '星空夜航', 'rare', '在挑战难度完成一轮', 'moon', ['#1b2458', '#6b6bb5'], '#2f6a52', '#ffe9a2', '#c7b8fa'),
+export const SERIES: { id: SeriesId; name: string }[] = [
+  { id: 'partners', name: '闯关伙伴' },
+  { id: 'streak', name: '连击星光' },
+  { id: 'islands', name: '四座岛屿' },
+  { id: 'daily', name: '每日与累计' },
+  { id: 'friends', name: '陪伴岛' },
 ];
 
-export const LEGACY_STICKERS: Record<string, { name: string; art: ArtKind; sky: [string, string]; ground: string; accent: string; accent2: string }> = {
-  star: { name: '闪亮星星', art: 'star', sky: ['#8fd4ff', '#fff1b8'], ground: '#7dce4e', accent: '#ffd15c', accent2: '#fff7d2' },
-  rainbow: { name: '彩虹', art: 'rainbow', sky: ['#9ad7ff', '#ffe1f2'], ground: '#6dce7a', accent: '#ff7eb3', accent2: '#7ad0ff' },
-  palm: { name: '椰子树', art: 'island', sky: ['#8fd4ff', '#e7ffe8'], ground: '#63c84a', accent: '#37b14a', accent2: '#c68642' },
-  gift: { name: '小礼物', art: 'chest', sky: ['#ffe7b8', '#fff6ea'], ground: '#c9894a', accent: '#ff8a65', accent2: '#ffd15c' },
-  dino: { name: '小恐龙', art: 'dino', sky: ['#8fd4ff', '#fff1b8'], ground: '#7dce4e', accent: '#6ed84a', accent2: '#ffb703' },
-  flower: { name: '小花花', art: 'flower', sky: ['#ffe1f0', '#fff6ea'], ground: '#7dce4e', accent: '#ff8fb8', accent2: '#ffd15c' },
-  panda: { name: '小熊猫', art: 'panda', sky: ['#d9f3ff', '#fff'], ground: '#7dce4e', accent: '#2a2a2a', accent2: '#fff' },
-  heart: { name: '爱心', art: 'heart', sky: ['#ffd0e0', '#fff0f6'], ground: '#7dce4e', accent: '#ff6f9a', accent2: '#ffd0e0' },
-  trophy: { name: '奖杯', art: 'trophy', sky: ['#d7ecff', '#fff4c8'], ground: '#7dce4e', accent: '#ffd15c', accent2: '#7eb6ff' },
-  sun: { name: '太阳', art: 'sun', sky: ['#8fd4ff', '#fff3bf'], ground: '#7dce4e', accent: '#ffd15c', accent2: '#ff9a1f' },
-  moon: { name: '月亮', art: 'moon', sky: ['#1b2458', '#6b6bb5'], ground: '#2f6a52', accent: '#ffe9a2', accent2: '#c7b8fa' },
-  mushroom: { name: '蘑菇', art: 'mushroom', sky: ['#d9f3ff', '#fff6ea'], ground: '#7dce4e', accent: '#ff5d6e', accent2: '#fff' },
-  butterfly: { name: '蝴蝶', art: 'butterfly', sky: ['#e7f0ff', '#fff0f8'], ground: '#7dce4e', accent: '#7eb6ff', accent2: '#ff8fb8' },
-  melon: { name: '西瓜', art: 'melon', sky: ['#c8f5ff', '#fff6d8'], ground: '#7dce4e', accent: '#ff5d6e', accent2: '#7dce4e' },
-  rocket: { name: '小火箭', art: 'rocket', sky: ['#b7dcff', '#fff6d0'], ground: '#7dce4e', accent: '#ff8a65', accent2: '#7eb6ff' },
+const RARITY_RANK: Record<Rarity, number> = { legend: 0, epic: 1, rare: 2, common: 3 };
+
+export const LEGACY_STICKERS: Record<string, { name: string }> = {
+  star: { name: '闪亮星星' },
+  rainbow: { name: '彩虹' },
+  palm: { name: '椰子树' },
+  gift: { name: '小礼物' },
+  dino: { name: '小恐龙' },
+  flower: { name: '小花花' },
+  panda: { name: '小熊猫' },
+  heart: { name: '爱心' },
+  trophy: { name: '奖杯' },
+  sun: { name: '太阳' },
+  moon: { name: '月亮' },
+  mushroom: { name: '蘑菇' },
+  butterfly: { name: '蝴蝶' },
+  melon: { name: '西瓜' },
+  rocket: { name: '小火箭' },
 };
 
-function card(
+/** Old catalog ids that still live in saves. Unmapped ids stay as legacy stickers. */
+export const OLD_CARD_MAP: Record<string, string> = {
+  sprout: 'sprout-dragon',
+  'perfect-stage': 'medal-bear',
+  'streak-5': 'spark-fox',
+  'streak-10': 'cloud-sprite',
+  'streak-15': 'lightning-deer',
+  'retry-heart': 'brave-lion',
+  'one-breath': 'rocket-pup',
+  flawless: 'crown-dragon',
+  'two-stars': 'star-duck',
+  'three-stars': 'star-penguin',
+  'cheer-up': 'cheer-lamb',
+  'easy-clear': 'grass-bunny',
+  'carry-clear': 'bridge-otter',
+  'advanced-clear': 'hill-alpaca',
+  'challenge-clear': 'castle-knight-dragon',
+  'challenge-3': 'dino-king',
+  'melon-sweet': 'melon-piglet',
+  'today-30': 'sun-chick',
+  'today-60': 'golden-leopard',
+  'correct-50': 'flower-fairy',
+  'correct-100': 'rainbow-unicorn',
+  'correct-300': 'magic-dragon',
+  'panda-3': 'panda-friend',
+  'panda-5': 'treasure-panda',
+  'guardian-10': 'island-guardian',
+  'all-diff': 'island-squirrel',
+  'night-sky': 'astronaut-rabbit',
+};
+
+function define(
   id: string,
   name: string,
   rarity: Rarity,
+  series: SeriesId,
   condition: string,
-  art: ArtKind,
-  sky: [string, string],
-  ground: string,
-  accent: string,
-  accent2: string,
 ): CardDef {
-  return {
-    id,
-    name,
-    rarity,
-    condition,
-    line: CHEER[id] ?? '你真棒，继续加油！',
-    art,
-    sky,
-    ground,
-    accent,
-    accent2,
-  };
+  const copy = CARD_COPY[id];
+  if (!copy) throw new Error(`missing copy for ${id}`);
+  return { id, name, rarity, series, condition, story: copy.story, line: copy.line, locked: copy.locked };
 }
+
+export const CARDS: CardDef[] = [
+  define('sprout-dragon', '萌芽小龙', 'common', 'partners', '完成第1关'),
+  define('brave-lion', '勇气小狮', 'common', 'partners', '答错后仍完成一关'),
+  define('cheer-lamb', '加油小羊', 'common', 'partners', '一轮得1颗星'),
+  define('hello-duckling', '问候小鸭', 'common', 'partners', '累计完成3关'),
+  define('medal-bear', '奖章小熊', 'rare', 'partners', '一关10题全对'),
+  define('rocket-pup', '火箭小狗', 'rare', 'partners', '一口气完成30题'),
+  define('pirate-seal', '海盗小海豹', 'rare', 'partners', '累计完成10关'),
+  define('detective-raccoon', '侦探小浣熊', 'rare', 'partners', '累计完成20关'),
+  define('wizard-owl', '魔法猫头鹰', 'epic', 'partners', '累计完成30关'),
+  define('explorer-elephant', '探险小象', 'epic', 'partners', '累计完成50关'),
+  define('crown-dragon', '皇冠龙王', 'legend', 'partners', '一轮30题全部一次答对'),
+  define('champion-tiger', '冠军小虎', 'legend', 'partners', '累计完成100关'),
+  define('firefly-mouse', '萤火小鼠', 'common', 'streak', '连对3题'),
+  define('star-duck', '双星小鸭', 'common', 'streak', '一轮得2颗星'),
+  define('melon-piglet', '西瓜小猪', 'common', 'streak', '轻松难度得3颗星'),
+  define('spark-fox', '火花小狐', 'rare', 'streak', '连对5题'),
+  define('cloud-sprite', '云朵精灵', 'rare', 'streak', '连对8题'),
+  define('star-penguin', '三星企鹅', 'rare', 'streak', '一轮得3颗星'),
+  define('star-fairy', '星星仙子', 'rare', 'streak', '连对12题'),
+  define('rainbow-parrot', '彩虹鹦鹉', 'epic', 'streak', '连对10题'),
+  define('lightning-deer', '闪电小鹿', 'epic', 'streak', '连对15题'),
+  define('star-koala', '星光考拉', 'epic', 'streak', '连续3轮得3颗星'),
+  define('comet-wolf', '彗星小狼', 'legend', 'streak', '连对20题'),
+  define('galaxy-whale', '银河鲸鱼', 'legend', 'streak', '连续5轮得3颗星'),
+  define('grass-bunny', '青草兔', 'common', 'islands', '完成轻松难度一轮'),
+  define('bridge-otter', '小桥水獭', 'common', 'islands', '完成进位难度一轮'),
+  define('easy-hedgehog', '轻松小刺猬', 'common', 'islands', '轻松难度完成3轮'),
+  define('carry-turtle', '进位小乌龟', 'common', 'islands', '进位难度完成3轮'),
+  define('hill-alpaca', '山丘羊驼', 'rare', 'islands', '完成进阶难度一轮'),
+  define('night-dolphin', '星空小海豚', 'rare', 'islands', '挑战难度得2颗星'),
+  define('advanced-eagle', '进阶小鹰', 'rare', 'islands', '进阶难度完成3轮'),
+  define('math-robot', '数学小机器人', 'rare', 'islands', '进阶难度得3颗星'),
+  define('castle-knight-dragon', '城堡骑士龙', 'epic', 'islands', '完成挑战难度一轮'),
+  define('challenge-phoenix', '挑战小凤凰', 'epic', 'islands', '挑战难度完成3轮'),
+  define('dino-king', '挑战恐龙王', 'legend', 'islands', '挑战难度得3颗星'),
+  define('island-squirrel', '四季岛主松鼠', 'legend', 'islands', '四个难度都完成过'),
+  define('sun-chick', '太阳小鸡', 'common', 'daily', '今天答对30题'),
+  define('strawberry-cat', '草莓猫咪', 'common', 'daily', '累计答对20题'),
+  define('honey-bee', '勤劳小蜜蜂', 'common', 'daily', '今天完成2轮'),
+  define('early-rooster', '打卡小公鸡', 'common', 'daily', '连续2天玩'),
+  define('flower-fairy', '花仙子', 'rare', 'daily', '累计答对50题'),
+  define('calendar-beaver', '打卡海狸', 'rare', 'daily', '连续3天玩'),
+  define('moon-rabbit', '月亮玉兔', 'rare', 'daily', '连续5天玩'),
+  define('rainbow-unicorn', '彩虹独角兽', 'epic', 'daily', '累计答对100题'),
+  define('treasure-monkey', '寻宝小猴', 'epic', 'daily', '累计答对200题'),
+  define('diamond-lemur', '钻石狐猴', 'epic', 'daily', '连续7天玩'),
+  define('golden-leopard', '金色小豹', 'legend', 'daily', '今天答对60题'),
+  define('magic-dragon', '魔法龙', 'legend', 'daily', '累计答对300题'),
+  define('panda-friend', '熊猫伙伴', 'common', 'friends', '完成3轮'),
+  define('hamster-collector', '收藏仓鼠', 'common', 'friends', '收集5张卡'),
+  define('giraffe-friend', '长颈鹿朋友', 'common', 'friends', '收集10张卡'),
+  define('treasure-panda', '宝箱熊猫', 'rare', 'friends', '完成5轮'),
+  define('zebra-collector', '斑马收藏家', 'rare', 'friends', '收集20张卡'),
+  define('flamingo-friend', '火烈鸟', 'rare', 'friends', '收集30张卡'),
+  define('astronaut-rabbit', '星际小兔', 'rare', 'friends', '集齐任意一个系列'),
+  define('island-guardian', '小岛守护者', 'epic', 'friends', '完成10轮'),
+  define('knight-panda', '骑士熊猫', 'epic', 'friends', '完成20轮'),
+  define('polar-bear', '北极熊', 'epic', 'friends', '收集45张卡'),
+  define('tortoise-elder', '岛屿长老龟', 'legend', 'friends', '完成30轮'),
+  define('gem-dragon', '宝石龙', 'legend', 'friends', '集齐全部60张'),
+];
+
+const DIFF_INDEX: Record<number, number> = { 1: 0, 2: 1, 3: 2, 4: 3 };
 
 export function cardById(id: string): CardDef | undefined {
   return CARDS.find((entry) => entry.id === id);
+}
+
+export function cardsInSeries(series: SeriesId): CardDef[] {
+  return CARDS.filter((entry) => entry.series === series);
+}
+
+export function seriesName(series: SeriesId): string {
+  return SERIES.find((entry) => entry.id === series)?.name ?? '';
 }
 
 export function resolveCard(id: string): CardDef | undefined {
@@ -197,80 +209,435 @@ export function resolveCard(id: string): CardDef | undefined {
   if (direct) return direct;
   if (!id.startsWith('legacy:')) return undefined;
   const legacy = LEGACY_STICKERS[id.slice('legacy:'.length)];
-  if (!legacy) return undefined;
   return {
     id,
-    name: legacy.name,
-    rarity: 'rare',
+    name: legacy?.name ?? '旧贴纸',
+    rarity: 'common',
+    series: 'partners',
     condition: '以前收集的贴纸',
-    line: '这张以前的贴纸也在为你加油！',
-    art: legacy.art,
-    sky: legacy.sky,
-    ground: legacy.ground,
-    accent: legacy.accent,
-    accent2: legacy.accent2,
+    story: '这是以前留在小岛上的贴纸。它还记得你来过。',
+    line: '旧贴纸也在为你加油！',
+    locked: '它已经在你身边啦！',
   };
-}
-
-/** Every card the snapshot qualifies for, including ones already owned. */
-export function grantsFor(snapshot: AwardSnapshot): CardGrant[] {
-  const grants: CardGrant[] = [];
-  const add = (id: string, achievement: string, correctCount: number) => {
-    grants.push({ id, achievement, correctCount });
-  };
-
-  add('sprout', `第 ${snapshot.stage} 关答对 ${snapshot.stageFirstTry}/10 题`, snapshot.stageFirstTry);
-  if (snapshot.stageFirstTry >= 10) add('perfect-stage', '本关答对 10/10 题', 10);
-  if (snapshot.streakHit5) add('streak-5', '连对 5 题', Math.max(5, snapshot.stageFirstTry));
-  if (snapshot.streakHit10) add('streak-10', '连对 10 题', Math.max(10, snapshot.stageFirstTry));
-  if (snapshot.bestStreak >= 15) add('streak-15', '连对 15 题', snapshot.bestStreak);
-  if (snapshot.hadRetry) add('retry-heart', '再试一次也对啦', snapshot.stageFirstTry);
-
-  if (snapshot.finishedRound) {
-    add('one-breath', '一口气完成 30 题', snapshot.roundFirstTry);
-    if (snapshot.perfect) add('flawless', '全程零错误', snapshot.roundFirstTry);
-    if (snapshot.stars <= 1) add('cheer-up', `再加油！这次答对 ${snapshot.roundFirstTry}/30 题`, snapshot.roundFirstTry);
-    if (snapshot.stars === 2) add('two-stars', '一轮得到 2 颗星', snapshot.roundFirstTry);
-    if (snapshot.stars >= 3) add('three-stars', '一轮得到 3 颗星', snapshot.roundFirstTry);
-    if (snapshot.difficulty === 1) add('easy-clear', '轻松难度通关', snapshot.roundFirstTry);
-    if (snapshot.difficulty === 2) add('carry-clear', '进位难度通关', snapshot.roundFirstTry);
-    if (snapshot.difficulty === 3) add('advanced-clear', '进阶难度通关', snapshot.roundFirstTry);
-    if (snapshot.difficulty === 4) {
-      add('challenge-clear', '挑战难度通关', snapshot.roundFirstTry);
-      add('night-sky', '挑战难度夜岛通关', snapshot.roundFirstTry);
-    }
-    if (snapshot.difficulty === 4 && snapshot.stars >= 3) add('challenge-3', '挑战难度 3 通关', snapshot.roundFirstTry);
-    if (snapshot.difficulty === 1 && snapshot.stars >= 3) add('melon-sweet', '轻松难度 3 星通关', snapshot.roundFirstTry);
-    if (snapshot.todayFirstTry >= 30) add('today-30', '今天答对 30 题', snapshot.todayFirstTry);
-    if (snapshot.todayFirstTry >= 60) add('today-60', '今天答对 60 题', snapshot.todayFirstTry);
-    if (snapshot.cumulativeFirstTry >= 50) add('correct-50', '累计答对 50 题', snapshot.cumulativeFirstTry);
-    if (snapshot.cumulativeFirstTry >= 100) add('correct-100', '累计答对 100 题', snapshot.cumulativeFirstTry);
-    if (snapshot.cumulativeFirstTry >= 300) add('correct-300', '累计答对 300 题', snapshot.cumulativeFirstTry);
-    if (snapshot.roundsCompleted >= 3) add('panda-3', '完成 3 轮', snapshot.roundFirstTry);
-    if (snapshot.roundsCompleted >= 5) add('panda-5', '完成 5 轮', snapshot.roundFirstTry);
-    if (snapshot.roundsCompleted >= 10) add('guardian-10', '完成 10 轮', snapshot.roundFirstTry);
-    if (snapshot.difficultiesCleared.length >= 4) add('all-diff', '四个难度都通关啦', snapshot.roundFirstTry);
-  }
-
-  return grants;
-}
-
-/** Newly earned cards, rarest first, with the first-ever card kept at the front. */
-export function newGrants(snapshot: AwardSnapshot, owned: Iterable<string>): CardGrant[] {
-  const have = new Set(owned);
-  const fresh = grantsFor(snapshot).filter((grant) => !have.has(grant.id) && cardById(grant.id));
-  fresh.sort((a, b) => {
-    if (a.id === 'sprout') return -1;
-    if (b.id === 'sprout') return 1;
-    const aRank = RARITY_RANK[cardById(a.id)?.rarity ?? 'common'];
-    const bRank = RARITY_RANK[cardById(b.id)?.rarity ?? 'common'];
-    return aRank - bRank;
-  });
-  return fresh;
 }
 
 export function legacyCardId(stickerId: string): string {
   return `legacy:${stickerId}`;
+}
+
+export function mapSavedCardId(id: string): string {
+  if (id.startsWith('legacy:')) return id;
+  if (cardById(id)) return id;
+  return OLD_CARD_MAP[id] ?? legacyCardId(id);
+}
+
+function at(values: number[] | undefined, index: number): number {
+  return values?.[index] ?? 0;
+}
+
+function maxStars(snapshot: AwardSnapshot): number {
+  return Math.max(snapshot.finishedRound ? snapshot.stars : 0, ...snapshot.bestStarsByDifficulty, 0);
+}
+
+function catalogOwned(owned: ReadonlySet<string>): number {
+  return CARDS.reduce((sum, card) => sum + (owned.has(card.id) ? 1 : 0), 0);
+}
+
+function completeSeriesCount(owned: ReadonlySet<string>): number {
+  return SERIES.filter((series) => series.id !== 'friends').filter((series) =>
+    cardsInSeries(series.id).every((card) => owned.has(card.id)),
+  ).length;
+}
+
+function meets(id: string, snapshot: AwardSnapshot, owned: ReadonlySet<string>): boolean {
+  const diff = DIFF_INDEX[snapshot.difficulty] ?? 0;
+  const rounds = snapshot.roundsByDifficulty;
+  const stars = snapshot.bestStarsByDifficulty;
+  switch (id) {
+    case 'sprout-dragon':
+      return snapshot.stagesCompleted >= 1;
+    case 'brave-lion':
+      return snapshot.hadRetry;
+    case 'cheer-lamb':
+      return snapshot.finishedRound && snapshot.stars === 1;
+    case 'hello-duckling':
+      return snapshot.stagesCompleted >= 3;
+    case 'medal-bear':
+      return snapshot.stageFirstTry >= 10;
+    case 'rocket-pup':
+      return snapshot.finishedRound;
+    case 'pirate-seal':
+      return snapshot.stagesCompleted >= 10;
+    case 'detective-raccoon':
+      return snapshot.stagesCompleted >= 20;
+    case 'wizard-owl':
+      return snapshot.stagesCompleted >= 30;
+    case 'explorer-elephant':
+      return snapshot.stagesCompleted >= 50;
+    case 'crown-dragon':
+      return snapshot.perfect;
+    case 'champion-tiger':
+      return snapshot.stagesCompleted >= 100;
+    case 'firefly-mouse':
+      return snapshot.bestStreak >= 3;
+    case 'star-duck':
+      return snapshot.finishedRound && snapshot.stars === 2;
+    case 'melon-piglet':
+      return at(stars, 0) >= 3 || (snapshot.finishedRound && snapshot.difficulty === 1 && snapshot.stars >= 3);
+    case 'spark-fox':
+      return snapshot.bestStreak >= 5;
+    case 'cloud-sprite':
+      return snapshot.bestStreak >= 8;
+    case 'star-penguin':
+      return maxStars(snapshot) >= 3;
+    case 'star-fairy':
+      return snapshot.bestStreak >= 12;
+    case 'rainbow-parrot':
+      return snapshot.bestStreak >= 10;
+    case 'lightning-deer':
+      return snapshot.bestStreak >= 15;
+    case 'star-koala':
+      return snapshot.threeStarStreak >= 3;
+    case 'comet-wolf':
+      return snapshot.bestStreak >= 20;
+    case 'galaxy-whale':
+      return snapshot.threeStarStreak >= 5;
+    case 'grass-bunny':
+      return at(rounds, 0) >= 1 || (snapshot.finishedRound && snapshot.difficulty === 1);
+    case 'bridge-otter':
+      return at(rounds, 1) >= 1 || (snapshot.finishedRound && snapshot.difficulty === 2);
+    case 'easy-hedgehog':
+      return at(rounds, 0) >= 3;
+    case 'carry-turtle':
+      return at(rounds, 1) >= 3;
+    case 'hill-alpaca':
+      return at(rounds, 2) >= 1 || (snapshot.finishedRound && snapshot.difficulty === 3);
+    case 'night-dolphin':
+      return at(stars, 3) >= 2 || (snapshot.finishedRound && snapshot.difficulty === 4 && snapshot.stars >= 2);
+    case 'advanced-eagle':
+      return at(rounds, 2) >= 3;
+    case 'math-robot':
+      return at(stars, 2) >= 3 || (snapshot.finishedRound && snapshot.difficulty === 3 && snapshot.stars >= 3);
+    case 'castle-knight-dragon':
+      return at(rounds, 3) >= 1 || (snapshot.finishedRound && snapshot.difficulty === 4);
+    case 'challenge-phoenix':
+      return at(rounds, 3) >= 3;
+    case 'dino-king':
+      return at(stars, 3) >= 3 || (snapshot.finishedRound && snapshot.difficulty === 4 && snapshot.stars >= 3);
+    case 'island-squirrel':
+      return [0, 1, 2, 3].every((index) => at(rounds, index) >= 1 || (snapshot.finishedRound && diff === index));
+    case 'sun-chick':
+      return snapshot.todayFirstTry >= 30;
+    case 'strawberry-cat':
+      return snapshot.cumulativeFirstTry >= 20;
+    case 'honey-bee':
+      return snapshot.roundsToday >= 2;
+    case 'early-rooster':
+      return snapshot.consecutiveDays >= 2;
+    case 'flower-fairy':
+      return snapshot.cumulativeFirstTry >= 50;
+    case 'calendar-beaver':
+      return snapshot.consecutiveDays >= 3;
+    case 'moon-rabbit':
+      return snapshot.consecutiveDays >= 5;
+    case 'rainbow-unicorn':
+      return snapshot.cumulativeFirstTry >= 100;
+    case 'treasure-monkey':
+      return snapshot.cumulativeFirstTry >= 200;
+    case 'diamond-lemur':
+      return snapshot.consecutiveDays >= 7;
+    case 'golden-leopard':
+      return snapshot.todayFirstTry >= 60;
+    case 'magic-dragon':
+      return snapshot.cumulativeFirstTry >= 300;
+    case 'panda-friend':
+      return snapshot.roundsCompleted >= 3;
+    case 'hamster-collector':
+      return catalogOwned(owned) >= 5;
+    case 'giraffe-friend':
+      return catalogOwned(owned) >= 10;
+    case 'treasure-panda':
+      return snapshot.roundsCompleted >= 5;
+    case 'zebra-collector':
+      return catalogOwned(owned) >= 20;
+    case 'flamingo-friend':
+      return catalogOwned(owned) >= 30;
+    case 'astronaut-rabbit':
+      return completeSeriesCount(owned) >= 1;
+    case 'island-guardian':
+      return snapshot.roundsCompleted >= 10;
+    case 'knight-panda':
+      return snapshot.roundsCompleted >= 20;
+    case 'polar-bear':
+      return catalogOwned(owned) >= 45;
+    case 'tortoise-elder':
+      return snapshot.roundsCompleted >= 30;
+    case 'gem-dragon':
+      return CARDS.every((card) => card.id === 'gem-dragon' || owned.has(card.id));
+    default:
+      return false;
+  }
+}
+
+function achievementFor(def: CardDef, snapshot: AwardSnapshot): string {
+  switch (def.id) {
+    case 'medal-bear':
+      return '本关答对 10/10 题';
+    case 'spark-fox':
+      return '连对 5 题';
+    case 'rainbow-parrot':
+      return '连对 10 题';
+    case 'cheer-lamb':
+      return `再加油！这次答对 ${snapshot.roundFirstTry}/30 题`;
+    case 'crown-dragon':
+      return '一轮 30 题全部一次答对';
+    case 'rocket-pup':
+      return '一口气完成 30 题';
+    default:
+      return def.condition;
+  }
+}
+
+function correctCountFor(def: CardDef, snapshot: AwardSnapshot): number {
+  if (def.id === 'cheer-lamb' || def.id === 'rocket-pup' || def.id === 'crown-dragon') return snapshot.roundFirstTry;
+  if (def.id === 'medal-bear') return snapshot.stageFirstTry;
+  if (def.series === 'streak' && def.condition.startsWith('连对')) return snapshot.bestStreak;
+  if (def.condition.includes('累计答对') || def.condition.includes('今天答对')) {
+    return def.condition.includes('今天') ? snapshot.todayFirstTry : snapshot.cumulativeFirstTry;
+  }
+  return snapshot.stageFirstTry || snapshot.roundFirstTry;
+}
+
+export function grantsFor(snapshot: AwardSnapshot, owned: Iterable<string> = []): CardGrant[] {
+  const have = new Set(owned);
+  const grants: CardGrant[] = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const def of CARDS) {
+      if (have.has(def.id) || !meets(def.id, snapshot, have)) continue;
+      have.add(def.id);
+      grants.push({
+        id: def.id,
+        achievement: achievementFor(def, snapshot),
+        correctCount: correctCountFor(def, snapshot),
+      });
+      added = true;
+    }
+  }
+  return grants;
+}
+
+export function newGrants(snapshot: AwardSnapshot, owned: Iterable<string>): CardGrant[] {
+  return grantsFor(snapshot, owned).sort((a, b) => {
+    const aRank = RARITY_RANK[cardById(a.id)?.rarity ?? 'common'];
+    const bRank = RARITY_RANK[cardById(b.id)?.rarity ?? 'common'];
+    return aRank - bRank;
+  });
+}
+
+export interface UnlockStatus {
+  have: number;
+  need: number;
+  label: string;
+  text: string;
+}
+
+function pair(label: string, have: number, need: number): UnlockStatus {
+  const safeHave = Math.max(0, Math.min(have, need));
+  return { have: safeHave, need, label, text: `${label}解锁 (${safeHave}/${need})` };
+}
+
+export function unlockStatus(id: string, progress: PlayerProgress): UnlockStatus {
+  const def = cardById(id);
+  const label = def?.condition ?? '继续加油';
+  const rounds = progress.roundsByDifficulty;
+  const stars = progress.bestStarsByDifficulty;
+  const max = Math.max(...stars, 0);
+  const diffs = rounds.filter((count) => count > 0).length;
+  const oneStar = progress.rounds.some((round) => round.stars === 1);
+  const twoStar = progress.rounds.some((round) => round.stars === 2);
+  const perfect = progress.rounds.some((round) => round.firstTryCorrect >= 30);
+  switch (id) {
+    case 'sprout-dragon':
+      return pair(label, progress.stagesCompleted, 1);
+    case 'brave-lion':
+      return pair(label, 0, 1);
+    case 'cheer-lamb':
+      return pair(label, oneStar ? 1 : 0, 1);
+    case 'hello-duckling':
+      return pair(label, progress.stagesCompleted, 3);
+    case 'medal-bear':
+      return pair(label, perfect ? 1 : 0, 1);
+    case 'rocket-pup':
+      return pair(label, progress.roundsCompleted, 1);
+    case 'pirate-seal':
+      return pair(label, progress.stagesCompleted, 10);
+    case 'detective-raccoon':
+      return pair(label, progress.stagesCompleted, 20);
+    case 'wizard-owl':
+      return pair(label, progress.stagesCompleted, 30);
+    case 'explorer-elephant':
+      return pair(label, progress.stagesCompleted, 50);
+    case 'crown-dragon':
+      return pair(label, perfect ? 1 : 0, 1);
+    case 'champion-tiger':
+      return pair(label, progress.stagesCompleted, 100);
+    case 'firefly-mouse':
+      return pair(label, progress.bestStreak, 3);
+    case 'star-duck':
+      return pair(label, twoStar ? 1 : 0, 1);
+    case 'melon-piglet':
+      return pair(label, stars[0] ?? 0, 3);
+    case 'spark-fox':
+      return pair(label, progress.bestStreak, 5);
+    case 'cloud-sprite':
+      return pair(label, progress.bestStreak, 8);
+    case 'star-penguin':
+      return pair(label, max, 3);
+    case 'star-fairy':
+      return pair(label, progress.bestStreak, 12);
+    case 'rainbow-parrot':
+      return pair(label, progress.bestStreak, 10);
+    case 'lightning-deer':
+      return pair(label, progress.bestStreak, 15);
+    case 'star-koala':
+      return pair(label, progress.threeStarStreak, 3);
+    case 'comet-wolf':
+      return pair(label, progress.bestStreak, 20);
+    case 'galaxy-whale':
+      return pair(label, progress.threeStarStreak, 5);
+    case 'grass-bunny':
+      return pair(label, rounds[0] ?? 0, 1);
+    case 'bridge-otter':
+      return pair(label, rounds[1] ?? 0, 1);
+    case 'easy-hedgehog':
+      return pair(label, rounds[0] ?? 0, 3);
+    case 'carry-turtle':
+      return pair(label, rounds[1] ?? 0, 3);
+    case 'hill-alpaca':
+      return pair(label, rounds[2] ?? 0, 1);
+    case 'night-dolphin':
+      return pair(label, stars[3] ?? 0, 2);
+    case 'advanced-eagle':
+      return pair(label, rounds[2] ?? 0, 3);
+    case 'math-robot':
+      return pair(label, stars[2] ?? 0, 3);
+    case 'castle-knight-dragon':
+      return pair(label, rounds[3] ?? 0, 1);
+    case 'challenge-phoenix':
+      return pair(label, rounds[3] ?? 0, 3);
+    case 'dino-king':
+      return pair(label, stars[3] ?? 0, 3);
+    case 'island-squirrel':
+      return pair(label, diffs, 4);
+    case 'sun-chick':
+      return pair(label, progress.todayFirstTry, 30);
+    case 'strawberry-cat':
+      return pair(label, progress.cumulativeFirstTry, 20);
+    case 'honey-bee':
+      return pair(label, progress.roundsToday, 2);
+    case 'early-rooster':
+      return pair(label, progress.consecutiveDays, 2);
+    case 'flower-fairy':
+      return pair(label, progress.cumulativeFirstTry, 50);
+    case 'calendar-beaver':
+      return pair(label, progress.consecutiveDays, 3);
+    case 'moon-rabbit':
+      return pair(label, progress.consecutiveDays, 5);
+    case 'rainbow-unicorn':
+      return pair(label, progress.cumulativeFirstTry, 100);
+    case 'treasure-monkey':
+      return pair(label, progress.cumulativeFirstTry, 200);
+    case 'diamond-lemur':
+      return pair(label, progress.consecutiveDays, 7);
+    case 'golden-leopard':
+      return pair(label, progress.todayFirstTry, 60);
+    case 'magic-dragon':
+      return pair(label, progress.cumulativeFirstTry, 300);
+    case 'panda-friend':
+      return pair(label, progress.roundsCompleted, 3);
+    case 'hamster-collector':
+      return pair(label, 0, 5);
+    case 'giraffe-friend':
+      return pair(label, 0, 10);
+    case 'treasure-panda':
+      return pair(label, progress.roundsCompleted, 5);
+    case 'zebra-collector':
+      return pair(label, 0, 20);
+    case 'flamingo-friend':
+      return pair(label, 0, 30);
+    case 'astronaut-rabbit':
+      return pair(label, 0, 1);
+    case 'island-guardian':
+      return pair(label, progress.roundsCompleted, 10);
+    case 'knight-panda':
+      return pair(label, progress.roundsCompleted, 20);
+    case 'polar-bear':
+      return pair(label, 0, 45);
+    case 'tortoise-elder':
+      return pair(label, progress.roundsCompleted, 30);
+    case 'gem-dragon':
+      return pair(label, 0, 59);
+    default:
+      return pair(label, 0, 1);
+  }
+}
+
+export function unlockStatusWithOwned(id: string, progress: PlayerProgress, owned: Iterable<string>): UnlockStatus {
+  const status = unlockStatus(id, progress);
+  const have = new Set(owned);
+  if (id === 'hamster-collector' || id === 'giraffe-friend' || id === 'zebra-collector' || id === 'flamingo-friend' || id === 'polar-bear') {
+    return pair(status.label, catalogOwned(have), status.need);
+  }
+  if (id === 'astronaut-rabbit') return pair(status.label, completeSeriesCount(have), 1);
+  if (id === 'gem-dragon') return pair(status.label, CARDS.filter((card) => card.id !== 'gem-dragon' && have.has(card.id)).length, 59);
+  return status;
+}
+
+export function lockedCheer(def: CardDef, status: UnlockStatus): string {
+  const left = Math.max(status.need - status.have, status.have >= status.need ? 0 : 1);
+  return def.locked.replaceAll('{n}', String(left));
+}
+
+export function emptySnapshot(partial: Partial<AwardSnapshot> = {}): AwardSnapshot {
+  return {
+    stage: 1,
+    stageFirstTry: 0,
+    bestStreak: 0,
+    hadRetry: false,
+    roundFirstTry: 0,
+    stars: 0,
+    perfect: false,
+    finishedRound: false,
+    difficulty: 1,
+    todayFirstTry: 0,
+    cumulativeFirstTry: 0,
+    roundsCompleted: 0,
+    stagesCompleted: 0,
+    roundsByDifficulty: [0, 0, 0, 0],
+    bestStarsByDifficulty: [0, 0, 0, 0],
+    threeStarStreak: 0,
+    consecutiveDays: 0,
+    roundsToday: 0,
+    ...partial,
+  };
+}
+
+export function historySnapshot(progress: PlayerProgress, partial: Partial<AwardSnapshot> = {}): AwardSnapshot {
+  return emptySnapshot({
+    bestStreak: progress.bestStreak,
+    cumulativeFirstTry: progress.cumulativeFirstTry,
+    todayFirstTry: progress.todayFirstTry,
+    roundsCompleted: progress.roundsCompleted,
+    stagesCompleted: progress.stagesCompleted,
+    roundsByDifficulty: progress.roundsByDifficulty,
+    bestStarsByDifficulty: progress.bestStarsByDifficulty,
+    threeStarStreak: progress.threeStarStreak,
+    consecutiveDays: progress.consecutiveDays,
+    roundsToday: progress.roundsToday,
+    ...partial,
+  });
 }
 
 export function formatCardDate(iso: string): string {
