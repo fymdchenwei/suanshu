@@ -1,11 +1,24 @@
 import { ALL_DIFFICULTIES, ROUND_SIZE, type Difficulty, type Problem } from '../engine/questionEngine';
+import { cardSvg } from '../game/cardArt';
+import {
+  CARDS,
+  RARITY_LABEL,
+  correctLabel,
+  formatCardDate,
+  resolveCard,
+  type CardDef,
+  type EarnedCard,
+} from '../game/cards';
 import {
   Copy,
   chipNote,
   clock,
   collectedCount,
+  comboText,
   detail,
   progress,
+  resultBody,
+  resultTitle,
   roundSummary,
   roundsPlayed,
   shareText,
@@ -13,24 +26,23 @@ import {
   stageTitle,
 } from '../game/copy';
 import type { GameSession } from '../game/session';
-import { STICKERS } from '../game/stickers';
 import type { Stage } from '../render/stage';
 
 const DIGIT_COLORS = ['#b9a3f5', '#f7a8c4', '#f6c445', '#c9b0f7', '#7ddeaf', '#7eb6f6', '#f7b27a', '#e7b0f5', '#f7a0b4', '#f0c84a'];
 
 const KEYS: { label: string; name: string; value: number | 'del' | 'ok'; color: string; lip: string }[] = [
-  { label: '1', name: '1', value: 1, color: '#ff9fbe', lip: '#e06b90' },
-  { label: '2', name: '2', value: 2, color: '#ffd45a', lip: '#e0a020' },
-  { label: '3', name: '3', value: 3, color: '#c9b0ff', lip: '#9070d8' },
-  { label: '4', name: '4', value: 4, color: '#8ee8c0', lip: '#4cba8a' },
-  { label: '5', name: '5', value: 5, color: '#8ec4ff', lip: '#4d8ed6' },
-  { label: '6', name: '6', value: 6, color: '#ffc08a', lip: '#e08848' },
-  { label: '7', name: '7', value: 7, color: '#d8c4ff', lip: '#9a78d8' },
-  { label: '8', name: '8', value: 8, color: '#ffb3cc', lip: '#e07898' },
-  { label: '9', name: '9', value: 9, color: '#ffe07a', lip: '#e0b040' },
-  { label: '⌫', name: Copy.delete, value: 'del', color: '#8ecbff', lip: '#4d94d4' },
-  { label: '0', name: '0', value: 0, color: '#d2c0f7', lip: '#9078cc' },
-  { label: '✓', name: Copy.submit, value: 'ok', color: '#9eeb86', lip: '#4cba55' },
+  { label: '1', name: '1', value: 1, color: '#ff8eb6', lip: '#d45b86' },
+  { label: '2', name: '2', value: 2, color: '#ffd15a', lip: '#e09a14' },
+  { label: '3', name: '3', value: 3, color: '#c9b0ff', lip: '#8d70d4' },
+  { label: '4', name: '4', value: 4, color: '#7eebc0', lip: '#3aaa78' },
+  { label: '5', name: '5', value: 5, color: '#7eb6ff', lip: '#3d82d4' },
+  { label: '6', name: '6', value: 6, color: '#ffb06a', lip: '#e07830' },
+  { label: '7', name: '7', value: 7, color: '#d2b8ff', lip: '#9070d0' },
+  { label: '8', name: '8', value: 8, color: '#ff9ec4', lip: '#d46090' },
+  { label: '9', name: '9', value: 9, color: '#ffe07a', lip: '#e0a828' },
+  { label: '⌫', name: Copy.delete, value: 'del', color: '#7ec4ff', lip: '#3d8ad0' },
+  { label: '0', name: '0', value: 0, color: '#c8b4f4', lip: '#8870c0' },
+  { label: '✓', name: Copy.submit, value: 'ok', color: '#8ee86a', lip: '#3aaa40' },
 ];
 
 export function mountApp(session: GameSession, stage: Stage): void {
@@ -40,19 +52,35 @@ export function mountApp(session: GameSession, stage: Stage): void {
   const ui = bind(root);
   buildDifficulty(ui.diffRow, session);
   buildKeypad(ui.keypad, session);
-  buildStickers(ui.stickerGrid);
+  buildTrack(ui.track);
+  buildAlbum(ui.album);
 
   ui.start.addEventListener('click', () => session.startRound());
-  ui.openStickers.addEventListener('click', () => session.openStickers());
+  ui.openCards.addEventListener('click', () => session.openCards());
+  ui.cardPocket.addEventListener('click', () => session.openCards());
+  ui.resultsCards.addEventListener('click', () => session.openCards());
   ui.exit.addEventListener('click', () => session.requestExit());
   ui.resultsHome.addEventListener('click', () => session.goHome());
   ui.again.addEventListener('click', () => session.playAgain());
-  ui.backIsland.addEventListener('click', () => session.goHome());
-  ui.closeStickers.addEventListener('click', () => session.closeStickers());
-  ui.dismissChest.addEventListener('click', () => session.dismissChest());
+  ui.closeCards.addEventListener('click', () => session.closeCards());
+  ui.dismissChest.addEventListener('click', () => {
+    if (!ui.revealCard.hidden) flyClone(ui.revealCard, ui.cardPocket);
+    session.dismissChest();
+  });
   ui.keepPlaying.addEventListener('click', () => session.cancelExit());
   ui.confirmExit.addEventListener('click', () => session.goHome());
   ui.share.addEventListener('click', () => void share(session));
+  ui.closeInspect.addEventListener('click', () => {
+    ui.inspect.hidden = true;
+    ui.inspectTilt?.();
+    ui.inspectTilt = undefined;
+  });
+  ui.cards.addEventListener('click', (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button) return;
+    openInspect(ui, button.dataset.card ?? '', session);
+  });
+  ui.album.addEventListener('pointermove', (event) => tiltCard(event));
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mute]')) {
     button.addEventListener('click', () => session.toggleMute());
   }
@@ -65,28 +93,36 @@ export function mountApp(session: GameSession, stage: Stage): void {
 
   let lastCorrect = session.correctToken;
   let lastWrong = session.wrongToken;
+  let lastLanded = 0;
 
   const render = () => {
     document.body.dataset.screen = session.screen;
     if (session.screen === 'home' || session.screen === 'quiz' || session.screen === 'results') {
       stage.setMode(session.screen);
     }
+    if (session.screen === 'quiz') stage.setTheme(session.difficulty);
+    const landed = session.stonesLanded;
     const snap = session.screen !== 'quiz' || (session.index === 0 && session.correctToken === lastCorrect);
-    stage.setQuizStone(session.stonesLanded, snap);
+    stage.setQuizStone(landed, snap || landed < lastLanded);
+    lastLanded = landed;
     stage.setStars(session.screen === 'results' ? session.stars : 0);
     stage.setChestOpen(session.screen === 'results' || session.chest !== null);
+    if (session.screen === 'results') stage.setResultMood(session.stars <= 1 ? 'gentle' : 'cheer');
     if (session.correctToken !== lastCorrect) {
-      stage.burst();
-      spawnBits(10);
+      const level = session.streak >= 10 ? 2 : session.streak >= 5 ? 1 : 0;
+      stage.burst(level);
+      stage.setQuizMood('happy');
+      spawnCandy(level);
+      glow(level === 2 ? 'max' : level === 1 ? 'hot' : 'ok');
       lastCorrect = session.correctToken;
-      if (session.streak === 5 || session.streak === 10) flashStreak();
     }
     if (session.wrongToken !== lastWrong) {
+      stage.setQuizMood('sad');
       shake(ui.equation);
+      glow('soft');
       lastWrong = session.wrongToken;
     }
     sync(ui, session);
-    void document.body.offsetHeight;
     stage.resize();
   };
 
@@ -99,7 +135,7 @@ function template(): string {
     <section id="home" class="screen screen-home">
       <header class="topbar">
         <div class="pill pill-star" id="stat-correct">${starSvg()}<span id="correct-count">0</span></div>
-        <button class="pill pill-book" id="open-stickers" type="button">${bookSvg()}<span>${Copy.stickerBook}</span><span class="pill-count" id="sticker-count">0</span></button>
+        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span>${Copy.cardBook}</span><span class="pill-count" id="card-count">0</span></button>
         <div class="spacer"></div>
         <div class="pill pill-flame" id="stat-streak">${flameSvg()}<span id="streak-count">0</span></div>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
@@ -107,17 +143,22 @@ function template(): string {
       <div class="grow"></div>
       <footer class="home-dock">
         <div class="diff-row" id="diff-row"></div>
-        <button class="start" id="start" type="button">✦ ${Copy.start} ✦</button>
+        <button class="start" id="start" type="button"><i>✦</i> ${Copy.start} <i>✦</i></button>
         <p class="home-note" id="home-note"></p>
       </footer>
     </section>
     <section id="quiz" class="screen screen-quiz" hidden>
       <div class="quiz-top">
         <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
-        <div class="progress-pill"><span id="stage-label">${stageTitle(1)}</span><strong id="progress">1 / 30</strong></div>
+        <div class="progress-stack">
+          <div class="progress-pill"><span id="stage-label">${stageTitle(1)}</span><strong id="progress">1 / 30</strong></div>
+          <div class="track" id="track"></div>
+        </div>
+        <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </div>
       <div class="quiz-card">
+        <div id="combo" class="combo" hidden></div>
         <div id="streak-banner" class="streak-banner" hidden></div>
         <div id="equation" class="equation"></div>
         <p id="message" class="message" aria-live="polite"></p>
@@ -131,37 +172,45 @@ function template(): string {
         <button class="icon-btn wide" id="share" type="button">${Copy.share}</button>
       </header>
       <div class="grow"></div>
-      <div class="score-wrap">
-        <div class="score-card">
-          <div class="trophy" aria-hidden="true">${trophySvg()}</div>
-          <div>
-            <div class="score-main" id="score-text"></div>
-            <div class="earned-row" id="earned-row"></div>
-          </div>
-          <div class="score-meta"><span class="time" id="time-text">0:00</span><span id="stars-text"></span></div>
-        </div>
-      </div>
+      <article class="award-card" id="award-card">
+        <h2 id="result-title"></h2>
+        <p id="result-body"></p>
+        <div class="award-stars" id="award-stars"></div>
+        <div class="award-score" id="score-text"></div>
+        <p class="award-meta"><span id="time-text"></span><span id="streak-text"></span></p>
+        <div id="consolation"></div>
+        <div class="earned-row" id="earned-row"></div>
+      </article>
       <footer class="results-actions">
         <button class="btn btn-green" id="again" type="button">${Copy.again}</button>
-        <button class="btn btn-blue" id="back-island" type="button">${Copy.backToIsland}</button>
+        <button class="btn btn-blue" id="results-cards" type="button">${Copy.cardBook}</button>
       </footer>
     </section>
-    <section id="stickers" class="screen screen-stickers" hidden>
+    <section id="cards" class="screen screen-cards" hidden>
       <div class="sheet can-scroll">
         <div class="sheet-head">
-          <button class="icon-btn wide" id="close-stickers" type="button">${Copy.back}</button>
-          <h1>${Copy.stickerBook}</h1>
+          <button class="icon-btn wide" id="close-cards" type="button">${Copy.back}</button>
+          <h1>${Copy.cardBook}</h1>
           <p id="collected-label"></p>
         </div>
-        <div class="sticker-grid" id="sticker-grid"></div>
+        <div class="album" id="album"></div>
+        <div class="legacy" id="legacy" hidden></div>
       </div>
     </section>
     <div id="chest" class="modal" hidden role="dialog" aria-modal="true">
-      <div class="modal-card">
-        <div class="sticker-hero" id="chest-badge">🎁</div>
+      <div class="modal-card chest-modal">
+        <div class="toy-chest" aria-hidden="true"><div class="lid"></div><div class="box"></div><div class="glow"></div></div>
+        <div id="reveal-card" class="reveal-card"></div>
         <h2 id="chest-title">${Copy.chestTitle}</h2>
         <p id="chest-copy"></p>
-        <div class="modal-actions"><button class="btn btn-green" id="dismiss-chest" type="button">${Copy.continuePlaying}</button></div>
+        <p id="chest-meta"></p>
+        <div class="modal-actions"><button class="btn btn-green" id="dismiss-chest" type="button">${Copy.collectCard}</button></div>
+      </div>
+    </div>
+    <div id="inspect" class="modal" hidden role="dialog" aria-modal="true">
+      <div class="inspect-wrap">
+        <div id="inspect-card" class="inspect-card"></div>
+        <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
       </div>
     </div>
     <div id="exit-modal" class="modal" hidden role="dialog" aria-modal="true">
@@ -182,37 +231,51 @@ interface Ui {
   home: HTMLElement;
   quiz: HTMLElement;
   results: HTMLElement;
-  stickers: HTMLElement;
+  cards: HTMLElement;
   correctCount: HTMLElement;
-  stickerCount: HTMLElement;
+  cardCount: HTMLElement;
   streakCount: HTMLElement;
-  openStickers: HTMLButtonElement;
+  openCards: HTMLButtonElement;
+  cardPocket: HTMLButtonElement;
   diffRow: HTMLElement;
   start: HTMLButtonElement;
   homeNote: HTMLElement;
   exit: HTMLButtonElement;
   stageLabel: HTMLElement;
   progress: HTMLElement;
+  track: HTMLElement;
   equation: HTMLElement;
   message: HTMLElement;
   keypad: HTMLElement;
+  combo: HTMLElement;
   streakBanner: HTMLElement;
   resultsHome: HTMLButtonElement;
   share: HTMLButtonElement;
+  awardCard: HTMLElement;
+  resultTitle: HTMLElement;
+  resultBody: HTMLElement;
+  awardStars: HTMLElement;
   scoreText: HTMLElement;
   timeText: HTMLElement;
-  starsText: HTMLElement;
+  streakText: HTMLElement;
+  consolation: HTMLElement;
   earnedRow: HTMLElement;
   again: HTMLButtonElement;
-  backIsland: HTMLButtonElement;
-  closeStickers: HTMLButtonElement;
+  resultsCards: HTMLButtonElement;
+  closeCards: HTMLButtonElement;
   collectedLabel: HTMLElement;
-  stickerGrid: HTMLElement;
+  album: HTMLElement;
+  legacy: HTMLElement;
   chest: HTMLElement;
-  chestBadge: HTMLElement;
+  revealCard: HTMLElement;
   chestTitle: HTMLElement;
   chestCopy: HTMLElement;
+  chestMeta: HTMLElement;
   dismissChest: HTMLButtonElement;
+  inspect: HTMLElement;
+  inspectCard: HTMLElement;
+  closeInspect: HTMLButtonElement;
+  inspectTilt?: () => void;
   exitModal: HTMLElement;
   keepPlaying: HTMLButtonElement;
   confirmExit: HTMLButtonElement;
@@ -229,37 +292,50 @@ function bind(root: ParentNode): Ui {
     home: q('home'),
     quiz: q('quiz'),
     results: q('results'),
-    stickers: q('stickers'),
+    cards: q('cards'),
     correctCount: q('correct-count'),
-    stickerCount: q('sticker-count'),
+    cardCount: q('card-count'),
     streakCount: q('streak-count'),
-    openStickers: q('open-stickers'),
+    openCards: q('open-cards'),
+    cardPocket: q('card-pocket'),
     diffRow: q('diff-row'),
     start: q('start'),
     homeNote: q('home-note'),
     exit: q('exit'),
     stageLabel: q('stage-label'),
     progress: q('progress'),
+    track: q('track'),
     equation: q('equation'),
     message: q('message'),
     keypad: q('keypad'),
+    combo: q('combo'),
     streakBanner: q('streak-banner'),
     resultsHome: q('results-home'),
     share: q('share'),
+    awardCard: q('award-card'),
+    resultTitle: q('result-title'),
+    resultBody: q('result-body'),
+    awardStars: q('award-stars'),
     scoreText: q('score-text'),
     timeText: q('time-text'),
-    starsText: q('stars-text'),
+    streakText: q('streak-text'),
+    consolation: q('consolation'),
     earnedRow: q('earned-row'),
     again: q('again'),
-    backIsland: q('back-island'),
-    closeStickers: q('close-stickers'),
+    resultsCards: q('results-cards'),
+    closeCards: q('close-cards'),
     collectedLabel: q('collected-label'),
-    stickerGrid: q('sticker-grid'),
+    album: q('album'),
+    legacy: q('legacy'),
     chest: q('chest'),
-    chestBadge: q('chest-badge'),
+    revealCard: q('reveal-card'),
     chestTitle: q('chest-title'),
     chestCopy: q('chest-copy'),
+    chestMeta: q('chest-meta'),
     dismissChest: q('dismiss-chest'),
+    inspect: q('inspect'),
+    inspectCard: q('inspect-card'),
+    closeInspect: q('close-inspect'),
     exitModal: q('exit-modal'),
     keepPlaying: q('keep-playing'),
     confirmExit: q('confirm-exit'),
@@ -296,13 +372,35 @@ function buildKeypad(pad: HTMLElement, session: GameSession): void {
   }
 }
 
-function buildStickers(grid: HTMLElement): void {
-  for (const sticker of STICKERS) {
-    const cell = document.createElement('div');
-    cell.className = 'sticker locked';
-    cell.dataset.sticker = sticker.id;
-    cell.innerHTML = `<b>${sticker.emoji}</b><span>${sticker.name}</span>`;
-    grid.append(cell);
+function buildTrack(track: HTMLElement): void {
+  for (let i = 0; i < ROUND_SIZE; i += 1) {
+    const bead = document.createElement('i');
+    bead.className = 'bead';
+    if (i > 0 && i % 10 === 0) bead.classList.add('gap');
+    track.append(bead);
+  }
+  const trophy = document.createElement('i');
+  trophy.className = 'bead trophy';
+  trophy.textContent = '🏆';
+  track.append(trophy);
+}
+
+function buildAlbum(album: HTMLElement): void {
+  for (const def of CARDS) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `tc locked rarity-${def.rarity}`;
+    button.dataset.card = def.id;
+    button.innerHTML = `
+      <div class="tc-tilt">
+        <div class="tc-art">${cardSvg(def)}</div>
+        <div class="foil"></div>
+        <b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b>
+        <strong class="tc-name">${def.name}</strong>
+        <em class="tc-detail"></em>
+        <small class="tc-foot"></small>
+      </div>`;
+    album.append(button);
   }
 }
 
@@ -310,14 +408,16 @@ function sync(ui: Ui, session: GameSession): void {
   show(ui.home, session.screen === 'home');
   show(ui.quiz, session.screen === 'quiz');
   show(ui.results, session.screen === 'results');
-  show(ui.stickers, session.screen === 'stickers');
+  show(ui.cards, session.screen === 'cards');
 
+  const catalogOwned = session.save.cards.filter((card) => !card.id.startsWith('legacy:')).length;
   ui.correctCount.textContent = String(session.save.cumulativeFirstTry);
-  ui.stickerCount.textContent = String(session.save.stickers.length);
+  ui.cardCount.textContent = String(catalogOwned);
   ui.streakCount.textContent = String(session.save.bestStreak);
-  statLabel(ui, session);
+  ui.correctCount.parentElement?.setAttribute('aria-label', `累计一次答对 ${session.save.cumulativeFirstTry} 题`);
+  ui.streakCount.parentElement?.setAttribute('aria-label', `最高连对 ${session.save.bestStreak} 题`);
   ui.homeNote.textContent = `${detail(session.difficulty)} · ${roundsPlayed(session.roundsPlayed)}${lastRoundNote(session)}`;
-  ui.openStickers.setAttribute('aria-label', `${Copy.stickerBook}，${collectedCount(session.save.stickers.length, STICKERS.length)}`);
+  ui.openCards.setAttribute('aria-label', `${Copy.cardBook}，${collectedCount(catalogOwned, CARDS.length)}`);
 
   for (const button of ui.diffRow.querySelectorAll<HTMLButtonElement>('.diff')) {
     const difficulty = Number(button.dataset.difficulty) as Difficulty;
@@ -339,54 +439,183 @@ function sync(ui: Ui, session: GameSession): void {
   if (problem) paintEquation(ui.equation, problem, session.chest ? '' : session.input);
   ui.stageLabel.textContent = stageTitle(session.stageNumber);
   ui.progress.textContent = progress(session.displayNumber, ROUND_SIZE);
+  const beads = ui.track.querySelectorAll('.bead');
+  beads.forEach((bead, index) => {
+    if (bead.classList.contains('trophy')) {
+      bead.classList.toggle('done', session.index >= ROUND_SIZE);
+      return;
+    }
+    bead.classList.toggle('done', index < session.index);
+    bead.classList.toggle('now', index === session.index && session.screen === 'quiz' && !session.chest);
+  });
   ui.message.textContent = session.encouragement ?? '';
   ui.message.className = `message ${session.encouragementIsCheer ? 'cheer' : session.encouragement ? 'try' : ''}`;
   ui.streakBanner.hidden = !session.streakBanner;
   ui.streakBanner.textContent = session.streakBanner ?? '';
+  const showCombo = session.screen === 'quiz' && !session.chest && session.streak >= 2;
+  ui.combo.hidden = !showCombo;
+  ui.combo.textContent = showCombo ? comboText(session.streak) : '';
+  ui.combo.classList.toggle('hot', session.streak >= 5);
 
+  const gentle = session.stars <= 1;
+  ui.awardCard.classList.toggle('gentle', gentle);
+  ui.awardCard.classList.toggle('party', !gentle);
+  ui.resultTitle.textContent = resultTitle(session.stars);
+  ui.resultBody.textContent = resultBody(session.stars);
+  ui.awardStars.innerHTML = Array.from({ length: 3 }, (_, index) => `<i class="${index < session.stars ? 'on' : ''}">★</i>`).join('');
   ui.scoreText.innerHTML = `<span class="got">${session.firstTryCorrect}</span><span class="slash">/</span><span class="total">${ROUND_SIZE}</span>`;
   ui.timeText.textContent = clock(session.duration);
-  ui.starsText.textContent = `${'★'.repeat(session.stars)}${'☆'.repeat(3 - session.stars)}`;
+  ui.streakText.textContent = `${Copy.bestStreakLabel} ${session.bestStreakThisRound}`;
+  const cheer = session.save.cards.find((card) => card.id === 'cheer-up');
+  ui.consolation.innerHTML = gentle && cheer ? miniCard(cheer) : '';
   ui.earnedRow.innerHTML = session.earnedThisRound
-    .map((sticker) => `<span title="${sticker.name}" style="background:${sticker.color}">${sticker.emoji}</span>`)
+    .filter((card) => card.id !== 'cheer-up' || !gentle)
+    .slice(0, 4)
+    .map((card) => {
+      const def = resolveCard(card.id);
+      return def ? `<span title="${def.name}">${def.name}</span>` : '';
+    })
     .join('');
 
-  const owned = new Set(session.save.stickers.map((sticker) => sticker.id));
-  for (const cell of ui.stickerGrid.querySelectorAll<HTMLButtonElement>('.sticker')) {
-    const id = cell.dataset.sticker ?? '';
-    const got = owned.has(id);
-    cell.classList.toggle('locked', !got);
-    cell.setAttribute('aria-label', got ? (STICKERS.find((item) => item.id === id)?.name ?? '') : Copy.lockedSticker);
+  const owned = new Map(session.save.cards.map((card) => [card.id, card]));
+  for (const button of ui.album.querySelectorAll<HTMLButtonElement>('.tc')) {
+    const id = button.dataset.card ?? '';
+    const def = resolveCard(id);
+    if (!def) continue;
+    paintOwned(button, def, owned.get(id));
   }
-  ui.collectedLabel.textContent = collectedCount(owned.size, STICKERS.length);
+  const legacy = session.save.cards.filter((card) => card.id.startsWith('legacy:'));
+  ui.legacy.hidden = legacy.length === 0;
+  ui.legacy.innerHTML = legacy.length
+    ? `<h2>以前的贴纸</h2><div class="album">${legacy
+        .map((card) => {
+          const def = resolveCard(card.id);
+          if (!def) return '';
+          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)} · ${correctLabel(card.correctCount, true)}</small></div></button>`;
+        })
+        .join('')}</div>`
+    : '';
+  ui.collectedLabel.textContent = collectedCount(catalogOwned, CARDS.length);
 
   show(ui.chest, session.chest !== null && session.screen === 'quiz');
-  if (session.chest) {
-    if (session.chest.sticker) {
-      ui.chestBadge.textContent = session.chest.sticker.emoji;
-      ui.chestBadge.style.background = session.chest.sticker.color;
-      ui.chestTitle.textContent = session.chest.sticker.name;
-      ui.chestCopy.textContent = session.chest.sticker.phrase;
-    } else {
-      ui.chestBadge.textContent = '✨';
-      ui.chestBadge.style.background = '#fff1b8';
-      ui.chestTitle.textContent = Copy.stickersComplete;
-      ui.chestCopy.textContent = Copy.stickersCompleteDetail;
-    }
-    ui.dismissChest.textContent = session.chest.isFinal ? Copy.seeScore : Copy.continuePlaying;
-  }
+  if (session.chest) paintChest(ui, session);
   show(ui.exitModal, session.exitPrompt);
 
   const confetti = document.querySelector('#confetti');
   if (confetti) {
-    if (session.screen === 'results') fillConfetti(confetti, 28);
+    if (session.screen === 'results') fillConfetti(confetti, session.stars <= 1 ? 14 : 32);
     else if (session.screen !== 'quiz') confetti.replaceChildren();
   }
 }
 
+function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard | undefined): void {
+  button.classList.toggle('locked', !earned);
+  button.setAttribute('aria-label', earned ? `${def.name}，${earned.achievement}` : `${def.name}，${Copy.lockedCard}，${def.condition}`);
+  const detail = button.querySelector('.tc-detail');
+  const foot = button.querySelector('.tc-foot');
+  if (detail) detail.textContent = earned ? earned.achievement : def.condition;
+  if (foot) {
+    foot.textContent = earned
+      ? `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}`
+      : '未收集';
+  }
+}
+
+function paintChest(ui: Ui, session: GameSession): void {
+  const chest = session.chest;
+  if (!chest) return;
+  const grant = chest.cards[chest.cursor];
+  const def = grant ? resolveCard(grant.id) : undefined;
+  const earned = grant ? session.earnedThisRound.find((card) => card.id === grant.id) : undefined;
+  if (grant && def && earned) {
+    ui.revealCard.hidden = false;
+    ui.revealCard.className = `reveal-card rarity-${def.rarity}`;
+    ui.revealCard.innerHTML = cardShell(def, earned);
+    ui.chestTitle.textContent = def.name;
+    ui.chestCopy.textContent = earned.achievement;
+    ui.chestMeta.textContent = `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount)}`;
+    if (chest.banked > 0 && chest.cursor === chest.cards.length - 1) {
+      ui.chestMeta.textContent += ` · 另外 ${chest.banked} 张已放进卡片本`;
+    }
+  } else {
+    ui.revealCard.hidden = true;
+    ui.revealCard.innerHTML = '';
+    ui.chestTitle.textContent = Copy.chestEmptyTitle;
+    ui.chestCopy.textContent = Copy.chestEmptyDetail;
+    ui.chestMeta.textContent = '';
+  }
+  const last = !grant || chest.cursor >= chest.cards.length - 1;
+  ui.dismissChest.textContent = !last ? Copy.collectCard : chest.isFinal ? Copy.seeScore : Copy.continuePlaying;
+}
+
+function cardShell(def: CardDef, earned: EarnedCard): string {
+  return `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${earned.achievement}</em><small class="tc-foot">${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}</small></div>`;
+}
+
+function miniCard(earned: EarnedCard): string {
+  const def = resolveCard(earned.id);
+  if (!def) return '';
+  return `<div class="mini-card rarity-${def.rarity}">${cardSvg(def)}<div><strong>${def.name}</strong><em>${earned.achievement}</em></div></div>`;
+}
+
+function openInspect(ui: Ui, id: string, session: GameSession): void {
+  const def = resolveCard(id);
+  if (!def) return;
+  const earned = session.save.cards.find((card) => card.id === id);
+  ui.inspectCard.className = `inspect-card rarity-${def.rarity}${earned ? '' : ' locked'}`;
+  ui.inspectCard.innerHTML = earned
+    ? cardShell(def, earned)
+    : `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${def.condition}</em><small class="tc-foot">还没收集到</small></div>`;
+  ui.inspect.hidden = false;
+  ui.inspectTilt?.();
+  ui.inspectTilt = bindInspectTilt(ui.inspectCard);
+  const orientation = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+  if (typeof orientation.requestPermission === 'function') {
+    void orientation.requestPermission().catch(() => undefined);
+  }
+}
+
+function bindInspectTilt(card: HTMLElement): () => void {
+  const tilt = card.querySelector<HTMLElement>('.tc-tilt') ?? card;
+  const apply = (px: number, py: number) => {
+    tilt.style.setProperty('--rx', `${(-py * 14).toFixed(2)}deg`);
+    tilt.style.setProperty('--ry', `${(px * 16).toFixed(2)}deg`);
+    tilt.style.setProperty('--mx', px.toFixed(3));
+    tilt.style.setProperty('--my', py.toFixed(3));
+  };
+  const onPointer = (event: PointerEvent) => {
+    const rect = card.getBoundingClientRect();
+    apply((event.clientX - rect.left) / rect.width * 2 - 1, (event.clientY - rect.top) / rect.height * 2 - 1);
+  };
+  const onOrient = (event: DeviceOrientationEvent) => {
+    if (event.gamma == null || event.beta == null) return;
+    apply(Math.max(-1, Math.min(1, event.gamma / 28)), Math.max(-1, Math.min(1, (event.beta - 40) / 32)));
+  };
+  card.addEventListener('pointermove', onPointer);
+  window.addEventListener('deviceorientation', onOrient);
+  return () => {
+    card.removeEventListener('pointermove', onPointer);
+    window.removeEventListener('deviceorientation', onOrient);
+  };
+}
+
+function tiltCard(event: PointerEvent): void {
+  const card = (event.target as Element).closest<HTMLElement>('.tc');
+  if (!card || card.classList.contains('locked')) return;
+  const tilt = card.querySelector<HTMLElement>('.tc-tilt');
+  if (!tilt) return;
+  const rect = card.getBoundingClientRect();
+  const px = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  const py = ((event.clientY - rect.top) / rect.height) * 2 - 1;
+  tilt.style.setProperty('--rx', `${(-py * 10).toFixed(2)}deg`);
+  tilt.style.setProperty('--ry', `${(px * 12).toFixed(2)}deg`);
+  tilt.style.setProperty('--mx', px.toFixed(3));
+  tilt.style.setProperty('--my', py.toFixed(3));
+}
+
 function paintEquation(host: HTMLElement, problem: Problem, input: string): void {
   const symbol = problem.operation === 'addition' ? '+' : '−';
-  const opColor = problem.operation === 'addition' ? '#63d36d' : '#ff8b7a';
+  const opColor = problem.operation === 'addition' ? '#5dce68' : '#ff7d78';
   host.dataset.lhs = String(problem.lhs);
   host.dataset.rhs = String(problem.rhs);
   host.dataset.op = problem.operation === 'addition' ? '+' : '-';
@@ -419,24 +648,30 @@ function shake(equation: HTMLElement): void {
   equation.classList.add('is-shaking');
 }
 
-function flashStreak(): void {
-  document.body.classList.remove('streak-flash');
+function glow(kind: 'ok' | 'hot' | 'max' | 'soft'): void {
+  document.body.classList.remove('glow-ok', 'glow-hot', 'glow-max', 'glow-soft');
   void document.body.offsetWidth;
-  document.body.classList.add('streak-flash');
+  document.body.classList.add(`glow-${kind}`);
 }
 
-function spawnBits(count: number): void {
+function spawnCandy(level: 0 | 1 | 2): void {
   const layer = document.querySelector('#confetti');
-  if (!layer) return;
+  const equation = document.querySelector('#equation');
+  if (!layer || !equation) return;
+  const rect = equation.getBoundingClientRect();
   const colors = ['#ff8fb8', '#ffd15c', '#7ad0ff', '#b7f08a', '#d7b3ff', '#ffb07a'];
+  const count = level === 2 ? 22 : level === 1 ? 16 : 10;
   for (let i = 0; i < count; i += 1) {
     const bit = document.createElement('i');
-    bit.className = 'bit';
-    bit.style.left = `${Math.random() * 100}%`;
-    bit.style.background = colors[i % colors.length]!;
-    bit.style.animationDuration = `${0.8 + Math.random() * 0.6}s`;
+    bit.className = i % 3 === 0 ? 'coin' : 'bit';
+    bit.textContent = i % 3 === 0 ? '★' : '';
+    bit.style.left = `${rect.left + rect.width * (0.2 + Math.random() * 0.6)}px`;
+    bit.style.top = `${rect.top}px`;
+    bit.style.background = bit.className === 'coin' ? 'transparent' : colors[i % colors.length]!;
+    bit.style.setProperty('--dx', `${(Math.random() - 0.5) * 180}px`);
+    bit.style.animationDuration = `${0.7 + Math.random() * 0.5}s`;
     layer.append(bit);
-    window.setTimeout(() => bit.remove(), 1500);
+    window.setTimeout(() => bit.remove(), 1400);
   }
 }
 
@@ -446,13 +681,31 @@ function fillConfetti(layer: Element, count: number): void {
   layer.replaceChildren();
   for (let i = 0; i < count; i += 1) {
     const bit = document.createElement('i');
-    bit.className = 'bit';
+    bit.className = 'bit fall';
     bit.style.left = `${Math.random() * 100}%`;
     bit.style.background = colors[i % colors.length]!;
-    bit.style.animationDuration = `${2.4 + Math.random() * 1.8}s`;
-    bit.style.animationDelay = `${-Math.random() * 2.5}s`;
+    bit.style.animationDuration = `${2.2 + Math.random() * 1.8}s`;
+    bit.style.animationDelay = `${-Math.random() * 2.4}s`;
     layer.append(bit);
   }
+}
+
+function flyClone(source: HTMLElement, target: HTMLElement): void {
+  const from = source.getBoundingClientRect();
+  const to = target.getBoundingClientRect();
+  if (from.width === 0 || to.width === 0) return;
+  const flyer = source.cloneNode(true) as HTMLElement;
+  flyer.classList.add('flyer');
+  flyer.style.left = `${from.left}px`;
+  flyer.style.top = `${from.top}px`;
+  flyer.style.width = `${from.width}px`;
+  flyer.style.height = `${from.height}px`;
+  document.body.append(flyer);
+  requestAnimationFrame(() => {
+    flyer.style.transform = `translate(${to.left - from.left + to.width / 2 - from.width / 2}px, ${to.top - from.top}px) scale(0.12)`;
+    flyer.style.opacity = '0.15';
+  });
+  window.setTimeout(() => flyer.remove(), 560);
 }
 
 async function share(session: GameSession): Promise<void> {
@@ -478,11 +731,6 @@ function lastRoundNote(session: GameSession): string {
   return ` · ${roundSummary(last.firstTryCorrect, last.total, last.stars)}`;
 }
 
-function statLabel(ui: Ui, session: GameSession): void {
-  ui.correctCount.parentElement?.setAttribute('aria-label', `累计一次答对 ${session.save.cumulativeFirstTry} 题`);
-  ui.streakCount.parentElement?.setAttribute('aria-label', `最高连对 ${session.save.bestStreak} 题`);
-}
-
 function starSvg(): string {
   return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f5a524" d="M12 2.6l2.5 5.4 5.9.7-4.4 4 1.2 5.8L12 15.8 6.8 18.5l1.2-5.8-4.4-4 5.9-.7z"/></svg>';
 }
@@ -492,7 +740,7 @@ function flameSvg(): string {
 }
 
 function bookSvg(): string {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5aa2e6" d="M5 4.5h6.2c.8 0 1.6.3 2.2.8.6-.5 1.4-.8 2.2-.8H20V18h-4.2c-.7 0-1.4.2-2 .7-.6-.5-1.3-.7-2-.7H5z"/><path fill="#ffe08a" d="M8 8h2.2v2H8zm6.2 0H16v2h-1.8z"/></svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#5aa2e6" d="M4 4.2h6.4c.9 0 1.7.3 2.3.9.6-.6 1.4-.9 2.3-.9H20v13.2h-4.4c-.8 0-1.5.3-2.1.8-.6-.5-1.3-.8-2.1-.8H4z"/><path fill="#ffe08a" d="M7.2 8h2.4v1.8H7.2zm6.6 0h2.2v1.8h-2.2z"/></svg>';
 }
 
 function speakerSvg(muted: boolean): string {
@@ -501,8 +749,4 @@ function speakerSvg(muted: boolean): string {
     ? '<path stroke="#e05a4f" stroke-width="2" d="M15 9l5 6M20 9l-5 6"/>'
     : '<path fill="none" stroke="#3a332c" stroke-width="2" d="M15 9.2a3.2 3.2 0 0 1 0 5.6M17.2 7a6 6 0 0 1 0 10"/>';
   return `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">${body}${waves}</svg>`;
-}
-
-function trophySvg(): string {
-  return '<svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path fill="#fff" d="M7 4h10v2a5 5 0 0 1-10 0zm-2 1h2v1a6 6 0 0 0 1.2 3.6A5 5 0 0 1 5 6zm14 0v1a5 5 0 0 1-3.2 3.6A6 6 0 0 0 17 6V5zM9 13h6v2H9zm-1 3h8v2H8z"/></svg>';
 }

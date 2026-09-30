@@ -2,7 +2,7 @@ export interface AudioPlayer {
   muted: boolean;
   unlock(): void;
   playTap(): void;
-  playCorrect(): void;
+  playCorrect(streak?: number): void;
   playWrong(): void;
   playHop(): void;
   playChest(): void;
@@ -29,12 +29,14 @@ export class WebAudioPlayer implements AudioPlayer {
     this.play([[660, 0, 0.045]], 0.12);
   }
 
-  playCorrect(): void {
+  playCorrect(streak = 1): void {
+    const lift = Math.min(Math.max(streak, 1) - 1, 10) * 28;
     this.play(
       [
-        [523.25, 0, 0.11],
-        [659.25, 0.08, 0.12],
-        [783.99, 0.16, 0.18],
+        [880 + lift, 0, 0.05],
+        [523.25 + lift, 0.05, 0.1],
+        [659.25 + lift, 0.13, 0.11],
+        [783.99 + lift, 0.22, 0.18],
       ],
       0.22,
     );
