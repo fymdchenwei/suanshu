@@ -39,7 +39,7 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   });
   expect(covered, '难度按钮挡住了小恐龙').toEqual([]);
   await page.screenshot({ path: `${shots}/home_island.png` });
-  await page.locator('#pet-dino').click();
+  await page.locator('#pet-dino').tap();
   await page.waitForTimeout(160);
   await expect(page.locator('.heart-pop').first()).toBeVisible();
   await page.screenshot({ path: `${shots}/home_tap.png` });
