@@ -323,7 +323,6 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
   } else {
     const cycle = time % 3.2;
     const waving = cycle < 1.15;
-    anim.waving = waving;
     if (waving && !anim.waveLatched) {
       anim.waves += 1;
       anim.waveLatched = true;
@@ -331,8 +330,9 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
     if (!waving) anim.waveLatched = false;
     rig.armL.rotation.set(0.05, 0, -0.4 + Math.sin(time * 2) * 0.08);
     if (waving) {
-      const flap = Math.sin((cycle / 1.15) * Math.PI * 4);
-      rig.armR.rotation.set(-1.35, 0.2, 0.15 + flap * 0.85);
+      const lift = Math.sin((cycle / 1.15) * Math.PI);
+      anim.waving = lift > 0.72;
+      rig.armR.rotation.set(-0.2, 0, 0.45 + lift * 2.05);
     } else {
       rig.armR.rotation.set(-0.12, 0, 0.72 + Math.sin(time * 3) * 0.16);
     }

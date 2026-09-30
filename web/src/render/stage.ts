@@ -332,7 +332,8 @@ export class Stage {
     const stageEl = this.renderer.domElement;
     stageEl.dataset.blinks = String(this.homeAnim.blinks);
     stageEl.dataset.waves = String(this.homeAnim.waves);
-    stageEl.dataset.blinking = this.homeAnim.closing > 0.08 ? '1' : '0';
+    const eyesShut = this.homeAnim.closing > 0.12 && this.homeAnim.closing < 0.24;
+    stageEl.dataset.blinking = eyesShut ? '1' : '0';
     stageEl.dataset.waving = this.homeAnim.waving ? '1' : '0';
     updateDino(this.quizAnim, time, dt);
     updateDino(this.resultsAnim, time, dt);
@@ -419,8 +420,8 @@ export class Stage {
       return;
     }
     const sway = Math.sin(time * 0.28) * 0.06;
-    this.camera.position.set(-0.05 + sway, 2.2, 6.35);
-    this.camera.lookAt(-0.08, 0.42, 0.05);
+    this.camera.position.set(-0.08 + sway, 2.05, 5.7);
+    this.camera.lookAt(-0.12, 0.5, 0.08);
   }
 
   private applySky(): void {
@@ -488,7 +489,7 @@ export class Stage {
 
     const dino = createDino();
     dino.rig.group.position.set(-0.22, ground, 0.42);
-    dino.rig.group.scale.setScalar(0.78);
+    dino.rig.group.scale.setScalar(0.9);
     dino.rig.group.add(createShadow());
     this.home.add(dino.rig.group);
 
