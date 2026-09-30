@@ -48,6 +48,7 @@ export class GameSession {
   bestStreakThisRound = 0;
   wrongToken = 0;
   correctToken = 0;
+  emptySubmitToken = 0;
   encouragement: string | null = null;
   encouragementIsCheer = false;
   streakBanner: string | null = null;
@@ -189,7 +190,12 @@ export class GameSession {
   submit(): void {
     if (this.screen !== 'quiz' || this.chest || this.exitPrompt) return;
     const problem = this.currentProblem;
-    if (!problem || this.input.length === 0) return;
+    if (!problem || this.input.length === 0) {
+      this.emptySubmitToken += 1;
+      this.audio.playTap();
+      this.emit();
+      return;
+    }
     const value = Number(this.input);
     if (!Number.isInteger(value)) return;
 

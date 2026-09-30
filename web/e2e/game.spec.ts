@@ -37,10 +37,6 @@ test('plays a colourful round and collects cards', async ({ page }) => {
 
   for (let step = 0; step < 30; step += 1) {
     await answerCurrent(page);
-    if (step === 0) {
-      await page.waitForTimeout(280);
-      await page.screenshot({ path: `${shots}/quiz_correct.png` });
-    }
     if (step === 4) {
       await expect(page.locator('#streak-banner')).toContainText('连对 5 题');
       await page.waitForTimeout(280);
@@ -88,6 +84,59 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   expect(text).toContain('apple-mobile-web-app-capable');
   expect(text).toContain('viewport-fit=cover');
 
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
+test('quiz keys are large and answers stay visible', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+
+  await page.goto('/suanshu/');
+  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-ready') === '1');
+  await page.getByRole('button', { name: '开始闯关' }).click();
+  await expect(page.locator('#quiz')).toBeVisible();
+  await blur(page);
+  await page.screenshot({ path: `${shots}/quiz_idle.png` });
+
+  const boxes = await page.locator('#keypad .key').evaluateAll((els) =>
+    els.map((el) => {
+      const rect = el.getBoundingClientRect();
+      return { label: el.getAttribute('aria-label'), width: rect.width, height: rect.height };
+    }),
+  );
+  expect(boxes.map((box) => box.label)).toEqual(['1', '2', '3', '退格', '4', '5', '6', '确定', '7', '8', '9', '0']);
+  for (const box of boxes) {
+    expect(box.width, box.label ?? '').toBeGreaterThanOrEqual(64);
+    expect(box.height, box.label ?? '').toBeGreaterThanOrEqual(64);
+  }
+
+  await page.locator('#keypad').getByRole('button', { name: '确定' }).click();
+  await expect(page.locator('#equation')).toHaveClass(/is-shaking/);
+  await expect(page.locator('#message')).toHaveText('');
+
+  const problem = await readProblem(page);
+  const typed = problem.answer === 0 ? '2' : '0';
+  await page.locator('#keypad').getByRole('button', { name: typed, exact: true }).click();
+  await expect(page.locator('.answer-bubble')).toHaveText(typed);
+  const bubble = await page.locator('.answer-bubble').boundingBox();
+  const pad = await page.locator('#keypad').boundingBox();
+  expect(bubble).toBeTruthy();
+  expect(pad).toBeTruthy();
+  expect(bubble!.x + bubble!.width).toBeLessThanOrEqual((pad?.x ?? 0) + 1);
+  await page.screenshot({ path: `${shots}/quiz_typing.png` });
+
+  await page.locator('#keypad').getByRole('button', { name: '确定' }).click();
+  await expect(page.locator('#message')).toContainText('再试一次');
+  await page.screenshot({ path: `${shots}/quiz_wrong.png` });
+
+  await page.keyboard.press('Backspace');
+  await answerCurrent(page);
+  await expect(page.locator('#message')).toContainText('答对啦');
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${shots}/quiz_correct.png` });
   expect(errors, errors.join('\n')).toEqual([]);
 });
 

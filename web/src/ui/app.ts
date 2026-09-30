@@ -31,18 +31,18 @@ import type { Stage } from '../render/stage';
 const DIGIT_COLORS = ['#b9a3f5', '#f7a8c4', '#f6c445', '#c9b0f7', '#7ddeaf', '#7eb6f6', '#f7b27a', '#e7b0f5', '#f7a0b4', '#f0c84a'];
 
 const KEYS: { label: string; name: string; value: number | 'del' | 'ok'; color: string; lip: string }[] = [
-  { label: '1', name: '1', value: 1, color: '#ff8eb6', lip: '#d45b86' },
-  { label: '2', name: '2', value: 2, color: '#ffd15a', lip: '#e09a14' },
-  { label: '3', name: '3', value: 3, color: '#c9b0ff', lip: '#8d70d4' },
-  { label: '4', name: '4', value: 4, color: '#7eebc0', lip: '#3aaa78' },
-  { label: '5', name: '5', value: 5, color: '#7eb6ff', lip: '#3d82d4' },
-  { label: '6', name: '6', value: 6, color: '#ffb06a', lip: '#e07830' },
-  { label: '7', name: '7', value: 7, color: '#d2b8ff', lip: '#9070d0' },
-  { label: '8', name: '8', value: 8, color: '#ff9ec4', lip: '#d46090' },
-  { label: '9', name: '9', value: 9, color: '#ffe07a', lip: '#e0a828' },
-  { label: '⌫', name: Copy.delete, value: 'del', color: '#7ec4ff', lip: '#3d8ad0' },
-  { label: '0', name: '0', value: 0, color: '#c8b4f4', lip: '#8870c0' },
-  { label: '✓', name: Copy.submit, value: 'ok', color: '#8ee86a', lip: '#3aaa40' },
+  { label: '1', name: '1', value: 1, color: '#ff8eb8', lip: '#d45b86' },
+  { label: '2', name: '2', value: 2, color: '#ff9a3c', lip: '#e06a14' },
+  { label: '3', name: '3', value: 3, color: '#ffe14a', lip: '#e0a818' },
+  { label: '⌫', name: Copy.delete, value: 'del', color: '#5eb0ff', lip: '#2d78c8' },
+  { label: '4', name: '4', value: 4, color: '#b48cff', lip: '#7a58c8' },
+  { label: '5', name: '5', value: 5, color: '#7ddea0', lip: '#3aaa62' },
+  { label: '6', name: '6', value: 6, color: '#ff8eb8', lip: '#d45b86' },
+  { label: '✓', name: Copy.submit, value: 'ok', color: '#3dce6a', lip: '#1f9a42' },
+  { label: '7', name: '7', value: 7, color: '#5aa8ff', lip: '#2d74d0' },
+  { label: '8', name: '8', value: 8, color: '#c9a6ff', lip: '#8870c8' },
+  { label: '9', name: '9', value: 9, color: '#ffe14a', lip: '#e0a818' },
+  { label: '0', name: '0', value: 0, color: '#8fd4ff', lip: '#4aa0d8' },
 ];
 
 export function mountApp(session: GameSession, stage: Stage): void {
@@ -86,13 +86,29 @@ export function mountApp(session: GameSession, stage: Stage): void {
   }
 
   window.addEventListener('keydown', (event) => {
-    if (event.key >= '0' && event.key <= '9') session.tapDigit(Number(event.key));
-    else if (event.key === 'Backspace') session.deleteDigit();
-    else if (event.key === 'Enter') session.submit();
+    if (session.screen !== 'quiz' || session.chest || session.exitPrompt) return;
+    if (event.key >= '0' && event.key <= '9') {
+      event.preventDefault();
+      buzz();
+      session.tapDigit(Number(event.key));
+    } else if (event.key === 'Backspace') {
+      event.preventDefault();
+      buzz();
+      session.deleteDigit();
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      buzz();
+      session.submit();
+    }
+  });
+  window.addEventListener('resize', () => {
+    placeQuizStage(session);
+    stage.resize();
   });
 
   let lastCorrect = session.correctToken;
   let lastWrong = session.wrongToken;
+  let lastEmpty = session.emptySubmitToken;
   let lastLanded = 0;
 
   const render = () => {
@@ -122,7 +138,12 @@ export function mountApp(session: GameSession, stage: Stage): void {
       glow('soft');
       lastWrong = session.wrongToken;
     }
+    if (session.emptySubmitToken !== lastEmpty) {
+      shake(ui.equation);
+      lastEmpty = session.emptySubmitToken;
+    }
     sync(ui, session);
+    placeQuizStage(session);
     stage.resize();
   };
 
@@ -148,20 +169,26 @@ function template(): string {
       </footer>
     </section>
     <section id="quiz" class="screen screen-quiz" hidden>
-      <div class="quiz-top">
-        <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
-        <div class="progress-stack">
-          <div class="progress-pill"><span id="stage-label">${stageTitle(1)}</span><strong id="progress">1 / 30</strong></div>
-          <div class="track" id="track"></div>
+      <aside class="quiz-rail">
+        <div class="rail-tools">
+          <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
+          <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
+          <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
         </div>
-        <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
-        <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
-      </div>
-      <div class="quiz-card">
-        <div id="combo" class="combo" hidden></div>
-        <div id="streak-banner" class="streak-banner" hidden></div>
-        <div id="equation" class="equation"></div>
-        <p id="message" class="message" aria-live="polite"></p>
+        <div id="quiz-island" class="quiz-island"></div>
+        <div class="vtrack" id="track"></div>
+        <div class="stage-badge">
+          <span id="stage-label">${stageTitle(1)}</span>
+          <strong id="progress">1 / 30</strong>
+        </div>
+      </aside>
+      <div class="quiz-board">
+        <div class="answer-panel">
+          <div id="combo" class="combo" hidden></div>
+          <div id="streak-banner" class="streak-banner" hidden></div>
+          <div id="equation" class="equation"></div>
+          <p id="message" class="message" aria-live="polite"></p>
+        </div>
         <div class="keypad" id="keypad"></div>
       </div>
     </section>
@@ -360,31 +387,73 @@ function buildKeypad(pad: HTMLElement, session: GameSession): void {
   for (const key of KEYS) {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'key';
-    button.textContent = key.label;
+    button.className = key.value === 'ok' ? 'key key-ok' : key.value === 'del' ? 'key key-del' : 'key';
     button.setAttribute('aria-label', key.name);
     button.style.setProperty('--key', key.color);
     button.style.setProperty('--lip', key.lip);
-    button.addEventListener('click', () => {
+    if (key.value === 'ok') button.innerHTML = '<span class="key-mark">✓</span><span>确定</span>';
+    else if (key.value === 'del') button.innerHTML = '<span class="key-mark">⌫</span><span>退格</span>';
+    else button.textContent = key.label;
+    button.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      event.preventDefault();
+      button.classList.add('is-down');
+      window.setTimeout(() => button.classList.remove('is-down'), 120);
+      buzz();
       if (key.value === 'del') session.deleteDigit();
       else if (key.value === 'ok') session.submit();
       else session.tapDigit(key.value);
     });
+    const release = () => button.classList.remove('is-down');
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('pointerleave', release);
     pad.append(button);
   }
 }
 
-function buildTrack(track: HTMLElement): void {
-  for (let i = 0; i < ROUND_SIZE; i += 1) {
-    const bead = document.createElement('i');
-    bead.className = 'bead';
-    if (i > 0 && i % 10 === 0) bead.classList.add('gap');
-    track.append(bead);
+function buzz(): void {
+  const vibrate = navigator.vibrate?.bind(navigator);
+  if (!vibrate) return;
+  try {
+    vibrate(12);
+  } catch {
+    // Some browsers expose vibrate but reject the call.
   }
+}
+
+function placeQuizStage(session: GameSession): void {
+  const canvas = document.querySelector<HTMLCanvasElement>('#stage');
+  const island = document.querySelector<HTMLElement>('#quiz-island');
+  if (!canvas) return;
+  if (session.screen !== 'quiz' || !island) {
+    canvas.style.left = '0';
+    canvas.style.top = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.zIndex = '0';
+    canvas.style.borderRadius = '0';
+    return;
+  }
+  const rect = island.getBoundingClientRect();
+  canvas.style.left = `${rect.left}px`;
+  canvas.style.top = `${rect.top}px`;
+  canvas.style.width = `${Math.max(1, rect.width)}px`;
+  canvas.style.height = `${Math.max(1, rect.height)}px`;
+  canvas.style.zIndex = '2';
+  canvas.style.borderRadius = '18px';
+}
+
+function buildTrack(track: HTMLElement): void {
   const trophy = document.createElement('i');
-  trophy.className = 'bead trophy';
+  trophy.className = 'bead trophy done';
   trophy.textContent = '🏆';
   track.append(trophy);
+  for (let i = 0; i < 10; i += 1) {
+    const bead = document.createElement('i');
+    bead.className = 'bead';
+    track.append(bead);
+  }
 }
 
 function buildAlbum(album: HTMLElement): void {
@@ -442,13 +511,12 @@ function sync(ui: Ui, session: GameSession): void {
   ui.stageLabel.textContent = stageTitle(session.stageNumber);
   ui.progress.textContent = progress(session.displayNumber, ROUND_SIZE);
   const beads = ui.track.querySelectorAll('.bead');
+  const stageBase = session.index >= ROUND_SIZE ? 20 : Math.floor(session.index / 10) * 10;
   beads.forEach((bead, index) => {
-    if (bead.classList.contains('trophy')) {
-      bead.classList.toggle('done', session.index >= ROUND_SIZE);
-      return;
-    }
-    bead.classList.toggle('done', index < session.index);
-    bead.classList.toggle('now', index === session.index && session.screen === 'quiz' && !session.chest);
+    if (bead.classList.contains('trophy')) return;
+    const absolute = stageBase + index - 1;
+    bead.classList.toggle('done', absolute < session.index);
+    bead.classList.toggle('now', absolute === session.index && session.screen === 'quiz' && !session.chest);
   });
   ui.message.textContent = session.encouragement ?? '';
   ui.message.className = `message ${session.encouragementIsCheer ? 'cheer' : session.encouragement ? 'try' : ''}`;
