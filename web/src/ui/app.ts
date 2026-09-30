@@ -174,7 +174,8 @@ function template(): string {
           </div>
           <div class="path-board" id="diff-row">
             <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <path d="M22 82 C 48 84, 62 68, 78 60 S 48 36, 30 28 S 62 8, 80 14" />
+              <path class="trail-edge" d="M18 84 C 46 86, 64 66, 80 58 S 42 34, 28 26 S 64 6, 82 12" />
+              <path class="trail-core" d="M18 84 C 46 86, 64 66, 80 58 S 42 34, 28 26 S 64 6, 82 12" />
             </svg>
           </div>
           <button class="start" id="start" type="button">${Copy.start}</button>
@@ -619,7 +620,7 @@ function sync(ui: Ui, session: GameSession): void {
     button.classList.toggle('locked', !open);
     const stars = cleared ? `<span class="node-stars">${'★'.repeat(best)}${'☆'.repeat(Math.max(0, 3 - best))}</span>` : '';
     const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
-    const markup = `<span class="node-arrow" aria-hidden="true">▼</span><span class="node-face">${shortTitle(difficulty)}</span>${stars}${lock}`;
+    const markup = `<span class="node-arrow" aria-hidden="true">▼</span><span class="node-num">${difficulty}</span><span class="node-face">${shortTitle(difficulty)}</span>${stars}${lock}`;
     const view = `${markup}|${selected}|${open}`;
     if (button.dataset.view !== view) {
       button.dataset.view = view;

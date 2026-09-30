@@ -41,6 +41,10 @@ describe('card awards', () => {
       expect(resolveCard(card.id)?.id).toBe(card.id);
     }
     expect(new Set(CARDS.map((card) => card.line)).size).toBe(CARDS.length);
+    expect(new Set(CARDS.map((card) => card.name)).size).toBe(CARDS.length);
+    for (const name of ['萌芽小龙', '云朵精灵', '数学小机器人', '草莓猫咪', '星星仙子', '宇航兔']) {
+      expect(CARDS.some((card) => card.name === name)).toBe(true);
+    }
   });
 
   it('records a perfect stage with the streak cards', () => {

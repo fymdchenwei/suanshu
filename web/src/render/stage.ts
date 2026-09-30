@@ -311,7 +311,7 @@ export class Stage {
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.fov = this.mode === 'quiz' ? 36 : this.mode === 'results' ? 30 : 30;
+    this.camera.fov = this.mode === 'quiz' ? 36 : this.mode === 'results' ? 30 : 42;
     this.camera.updateProjectionMatrix();
   }
 
@@ -413,9 +413,9 @@ export class Stage {
       this.camera.lookAt(0.02, 0.62, 0.02);
       return;
     }
-    const sway = Math.sin(time * 0.28) * 0.04;
-    this.camera.position.set(0.08 + sway, 1.42, 3.05);
-    this.camera.lookAt(0.02, 0.78, 0.15);
+    const sway = Math.sin(time * 0.28) * 0.06;
+    this.camera.position.set(0.05 + sway, 2.05, 5.35);
+    this.camera.lookAt(0.02, 0.55, 0.05);
   }
 
   private applySky(): void {
@@ -482,8 +482,8 @@ export class Stage {
     this.addTufts(this.home, 0.3, 2.05, 18);
 
     const dino = createDino();
-    dino.rig.group.position.set(0.02, ground, 0.42);
-    dino.rig.group.scale.setScalar(1.18);
+    dino.rig.group.position.set(-0.05, ground, 0.35);
+    dino.rig.group.scale.setScalar(0.92);
     dino.rig.group.add(createShadow());
     this.home.add(dino.rig.group);
 
@@ -532,8 +532,9 @@ export class Stage {
     }
 
     const rainbow = createRainbow();
-    rainbow.position.set(-1.55, 1.85, -1.25);
-    rainbow.rotation.y = 0.45;
+    rainbow.position.set(-0.15, 2.55, -1.7);
+    rainbow.scale.setScalar(1.35);
+    rainbow.rotation.y = 0.2;
     this.home.add(rainbow);
 
     this.addCloud(this.home, -2.6, 2.35, -1.1, 0.9, 0.12);

@@ -178,25 +178,26 @@ body[data-screen='home'] {
   gap: 4px;
   border-radius: 28px;
   padding: 8px 10px 6px;
-  background: linear-gradient(180deg, rgba(158, 216, 255, 0.35), rgba(255, 244, 196, 0.2));
-  overflow: hidden;
+  background: linear-gradient(180deg, rgba(126, 206, 255, 0.55), rgba(255, 244, 196, 0.35));
+  overflow: visible;
 }
 
 .path-sky { position: absolute; inset: 0; pointer-events: none; }
 
 .rainbow {
   position: absolute;
-  left: 8%;
-  top: 4px;
-  width: 150px;
-  height: 76px;
-  border-radius: 150px 150px 0 0;
-  border: 8px solid #ff8eb8;
+  left: 4%;
+  top: 0;
+  width: 210px;
+  height: 96px;
+  border-radius: 210px 210px 0 0;
+  border: 10px solid #ff5d8a;
   border-bottom: 0;
   box-shadow:
-    inset 0 8px 0 #ffe14a,
-    inset 0 16px 0 #7ddea0,
-    inset 0 24px 0 #7ec8ff;
+    inset 0 10px 0 #ffe14a,
+    inset 0 20px 0 #7ddea0,
+    inset 0 30px 0 #7ec8ff,
+    inset 0 40px 0 #c9a6ff;
 }
 
 .cloud {
@@ -214,8 +215,8 @@ body[data-screen='home'] {
 
 .twinkle {
   position: absolute;
-  width: 8px;
-  height: 8px;
+  width: 14px;
+  height: 14px;
   background: #ffe14a;
   clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
 }
@@ -240,17 +241,18 @@ body[data-screen='home'] {
 }
 .trail path {
   fill: none;
-  stroke: #fff;
-  stroke-width: 7;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
+.trail-edge { stroke: #fff; stroke-width: 16; }
+.trail-core { stroke: #ffe14a; stroke-width: 7; }
 
 .diff {
   position: absolute;
-  width: 68px;
-  height: 68px;
-  min-width: 68px;
-  min-height: 68px;
+  width: 78px;
+  height: 78px;
+  min-width: 78px;
+  min-height: 78px;
   border-radius: 50%;
   border: 4px solid #fff;
   color: #fff;
@@ -259,24 +261,37 @@ body[data-screen='home'] {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.55), 0 5px 0 rgba(60, 40, 20, 0.16);
-  text-shadow: 0 2px 0 rgba(80, 40, 10, 0.18);
+  gap: 0;
+  box-shadow: inset 0 -8px 0 rgba(0, 0, 0, 0.08), inset 0 4px 0 rgba(255, 255, 255, 0.7), 0 6px 0 rgba(60, 40, 20, 0.16);
+  text-shadow: 0 2px 0 rgba(80, 40, 10, 0.22);
 }
-.diff[data-difficulty='1'] { left: 4%; bottom: 4%; background: linear-gradient(180deg, #b6f5c8, #3dce6a); }
-.diff[data-difficulty='2'] { right: 6%; bottom: 30%; background: linear-gradient(180deg, #ffd0a0, #ff8a2a); }
-.diff[data-difficulty='3'] { left: 18%; top: 14%; background: linear-gradient(180deg, #e4d0ff, #9b6cff); }
-.diff[data-difficulty='4'] { right: 12%; top: 2%; background: linear-gradient(180deg, #c5e4ff, #3d92ff); }
-.node-face { font-size: 16px; font-weight: 800; line-height: 1.1; }
-.node-stars { font-size: 11px; letter-spacing: 0; color: #fff6c8; line-height: 1; }
-.node-lock { font-size: 14px; line-height: 1; }
+.diff::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 16px;
+  width: 26px;
+  height: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.62);
+  pointer-events: none;
+}
+.diff[data-difficulty='1'] { left: 6%; bottom: 2%; background: linear-gradient(180deg, #d4ffb0, #3dce6a); }
+.diff[data-difficulty='2'] { right: 4%; bottom: 28%; background: linear-gradient(180deg, #ffe0b0, #ff8a2a); }
+.diff[data-difficulty='3'] { left: 14%; top: 18%; background: linear-gradient(180deg, #f0dcff, #9b6cff); }
+.diff[data-difficulty='4'] { right: 8%; top: 6%; background: linear-gradient(180deg, #d4ecff, #3d92ff); }
+.node-num { font-size: 22px; font-weight: 800; line-height: 1; }
+.node-face { font-size: 13px; font-weight: 800; line-height: 1.05; }
+.node-stars { font-size: 12px; letter-spacing: 0; color: #fff6c8; line-height: 1; }
+.node-lock { font-size: 16px; line-height: 1; }
 .node-arrow {
   display: none;
   position: absolute;
-  top: -18px;
+  top: -20px;
   left: 50%;
-  margin-left: -8px;
+  margin-left: -9px;
   color: #ff5d6e;
-  font-size: 16px;
+  font-size: 20px;
   text-shadow: 0 2px 0 #fff;
   animation: node-bob 0.7s ease-in-out infinite;
 }
@@ -735,9 +750,10 @@ body[data-screen='home'] {
   border-radius: 999px;
   padding: 1px 6px;
 }
-.tc-name { font-size: 15px; margin-top: 4px; }
-.tc-detail, .tc-foot { font-style: normal; font-size: 12px; font-weight: 700; line-height: 1.25; }
-.tc-foot { opacity: 0.65; }
+.tc-tilt { color: #2c1c14; }
+.tc-name { font-size: 16px; margin-top: 4px; color: #2c1c14; font-weight: 800; }
+.tc-detail, .tc-foot { font-style: normal; font-size: 13px; font-weight: 800; line-height: 1.25; color: #3a281c; }
+.tc-foot { opacity: 1; }
 
 .foil {
   position: absolute;
@@ -782,7 +798,7 @@ body[data-screen='home'] {
 .tc.locked .tc-art { filter: grayscale(1) brightness(0.18) contrast(1.3); position: relative; }
 .tc-art { position: relative; }
 .tc.locked .foil { opacity: 0; }
-.tc.locked .tc-name, .tc.locked .tc-detail, .tc.locked .tc-foot { color: #6d645c; }
+.tc.locked .tc-name, .tc.locked .tc-detail, .tc.locked .tc-foot { color: #3f342c; }
 
 .modal {
   position: fixed;
@@ -844,9 +860,10 @@ body[data-screen='home'] {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 108px 176px minmax(0, 1fr);
+  grid-template-columns: 96px 214px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  justify-items: center;
+  gap: 12px;
   min-height: 0;
 }
 .chest-dino svg { width: 108px; height: 136px; display: block; }
@@ -859,8 +876,8 @@ body[data-screen='home'] {
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12);
 }
 .chest-bubble p { margin: 0; }
-#chest-copy { font-size: 20px; line-height: 1.35; }
-#chest-meta { margin-top: 6px; font-size: 13px; opacity: 0.7; }
+#chest-copy { font-size: 20px; line-height: 1.35; color: #2c1c14; }
+#chest-meta { margin-top: 6px; font-size: 14px; font-weight: 800; color: #4a3428; opacity: 1; }
 .chest-modal .modal-actions { position: relative; z-index: 1; margin-top: 8px; }
 .chest-modal .btn { height: 52px; min-width: 148px; font-size: 22px; }
 .toy-chest { width: 92px; height: 64px; margin: 0 auto 4px; position: relative; }
@@ -890,11 +907,14 @@ body[data-screen='home'] {
 }
 
 .reveal-card {
-  width: 176px;
-  height: 228px;
+  width: 210px;
+  height: 252px;
   margin: 0;
   animation: cardIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
+.reveal-card .tc-name { font-size: 18px; color: #2c1c14; }
+.reveal-card .tc-detail,
+.reveal-card .tc-foot { font-size: 14px; color: #3a281c; }
 .reveal-card .tc-tilt { height: 100%; }
 .reveal-card[hidden] { display: none !important; }
 
