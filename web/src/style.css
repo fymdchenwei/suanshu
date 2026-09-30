@@ -277,9 +277,9 @@ body[data-screen='home'] {
   pointer-events: none;
 }
 .diff[data-difficulty='1'] { left: 6%; bottom: 2%; background: linear-gradient(180deg, #d4ffb0, #3dce6a); }
-.diff[data-difficulty='2'] { right: 4%; bottom: 28%; background: linear-gradient(180deg, #ffe0b0, #ff8a2a); }
-.diff[data-difficulty='3'] { left: 14%; top: 18%; background: linear-gradient(180deg, #f0dcff, #9b6cff); }
-.diff[data-difficulty='4'] { right: 8%; top: 6%; background: linear-gradient(180deg, #d4ecff, #3d92ff); }
+.diff[data-difficulty='2'] { right: 8%; bottom: 26%; background: linear-gradient(180deg, #ffe0b0, #ff8a2a); }
+.diff[data-difficulty='3'] { left: 16%; top: 20%; background: linear-gradient(180deg, #f0dcff, #9b6cff); }
+.diff[data-difficulty='4'] { right: 12%; top: 8%; background: linear-gradient(180deg, #d4ecff, #3d92ff); }
 .node-num { font-size: 22px; font-weight: 800; line-height: 1; }
 .node-face { font-size: 13px; font-weight: 800; line-height: 1.05; }
 .node-stars { font-size: 12px; letter-spacing: 0; color: #fff6c8; line-height: 1; }
@@ -297,7 +297,6 @@ body[data-screen='home'] {
 }
 .diff.selected .node-arrow { display: block; }
 .diff.selected { box-shadow: 0 0 0 4px #ffe14a, inset 0 3px 0 rgba(255, 255, 255, 0.55), 0 5px 0 rgba(60, 40, 20, 0.16); }
-.diff.locked { filter: saturate(0.45); }
 .diff.is-shaking { animation: shake 0.42s ease; }
 
 .start, .btn {
