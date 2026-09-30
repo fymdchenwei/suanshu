@@ -101,6 +101,33 @@ test('quiz keys are large and answers stay visible', async ({ page }) => {
   await blur(page);
   await expect(page.locator('.answer-bubble')).toHaveText('');
   await expect(page.locator('.answer-bubble')).toHaveClass(/is-empty/);
+  const fit = await page.locator('#equation').evaluate((el) => {
+    const kids = [...el.children].map((node) => {
+      const rect = node.getBoundingClientRect();
+      return { text: node.textContent ?? '', left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    });
+    const panel = el.parentElement?.getBoundingClientRect();
+    return {
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+      kids,
+      panelTop: panel?.top ?? 0,
+      panelBottom: panel?.bottom ?? 0,
+      vw: window.innerWidth,
+      vh: window.innerHeight,
+    };
+  });
+  expect(fit.kids.length).toBeGreaterThanOrEqual(4);
+  expect(fit.scrollWidth).toBeLessThanOrEqual(fit.clientWidth + 2);
+  for (const kid of fit.kids) {
+    expect(kid.width, kid.text).toBeGreaterThan(12);
+    expect(kid.height, kid.text).toBeGreaterThan(48);
+    expect(kid.left, kid.text).toBeGreaterThanOrEqual(0);
+    expect(kid.right, kid.text).toBeLessThanOrEqual(fit.vw + 1);
+    expect(kid.top, kid.text).toBeGreaterThanOrEqual(0);
+    expect(kid.bottom, kid.text).toBeLessThanOrEqual(fit.panelBottom + 1);
+  }
+  expect(fit.panelBottom).toBeLessThanOrEqual(fit.vh * 0.58);
   await page.screenshot({ path: `${shots}/quiz_idle.png` });
 
   const boxes = await page.locator('#keypad .key').evaluateAll((els) =>

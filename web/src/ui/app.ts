@@ -169,17 +169,6 @@ function template(): string {
       </footer>
     </section>
     <section id="quiz" class="screen screen-quiz" hidden>
-      <header class="quiz-top">
-        <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
-        <div id="quiz-island" class="quiz-island"></div>
-        <div class="vtrack" id="track"></div>
-        <div class="stage-badge">
-          <span id="stage-label">${stageTitle(1)}</span>
-          <strong id="progress">1 / 30</strong>
-        </div>
-        <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
-        <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
-      </header>
       <div class="answer-panel">
         <div class="answer-meta">
           <div id="streak-banner" class="streak-banner" hidden></div>
@@ -187,6 +176,17 @@ function template(): string {
         </div>
         <div id="equation" class="equation"></div>
         <p id="message" class="message" aria-live="polite"></p>
+      </div>
+      <div class="quiz-strip">
+        <button class="icon-btn wide" id="exit" type="button">${Copy.backToIslandShort}</button>
+        <div id="quiz-island" class="quiz-island"></div>
+        <div class="stage-badge">
+          <span id="stage-label">${stageTitle(1)}</span>
+          <strong id="progress">1 / 30</strong>
+        </div>
+        <div class="vtrack" id="track"></div>
+        <button class="icon-btn pocket" id="card-pocket" type="button" aria-label="${Copy.cardBook}">${bookSvg()}</button>
+        <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </div>
       <div class="keypad" id="keypad"></div>
     </section>
@@ -439,7 +439,7 @@ function placeQuizStage(session: GameSession): void {
   canvas.style.width = `${Math.max(1, rect.width)}px`;
   canvas.style.height = `${Math.max(1, rect.height)}px`;
   canvas.style.zIndex = '2';
-  canvas.style.borderRadius = '12px';
+  canvas.style.borderRadius = '10px';
 }
 
 function buildTrack(track: HTMLElement): void {
