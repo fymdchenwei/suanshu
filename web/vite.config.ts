@@ -1,5 +1,30 @@
-import { defineConfig } from 'vitest/config';
+import { readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
+
+function cardArtList(): Plugin {
+  const virtual = 'virtual:card-art';
+  const resolved = `\0${virtual}`;
+  return {
+    name: 'card-art-list',
+    resolveId(id) {
+      if (id === virtual) return resolved;
+      return undefined;
+    },
+    load(id) {
+      if (id !== resolved) return undefined;
+      const dir = resolve('public/art/cards');
+      let files: string[] = [];
+      try {
+        files = readdirSync(dir).filter((name) => name.endsWith('.webp'));
+      } catch {
+        files = [];
+      }
+      return `export const CARD_ART_FILES = ${JSON.stringify(files)};`;
+    },
+  };
+}
 
 export default defineConfig({
   base: '/suanshu/',
@@ -9,6 +34,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 800,
   },
   plugins: [
+    cardArtList(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'pwa-192.png', 'pwa-512.png', 'favicon-32.png'],
@@ -33,7 +59,19 @@ export default defineConfig({
       workbox: {
         cacheId: 'suanshu-v7',
         globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,webmanifest}'],
+        globIgnores: ['**/art/cards/**'],
         navigateFallback: 'index.html',
+        runtimeCaching: [
+          {
+            urlPattern: /\/art\/cards\/.*\.webp$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'suanshu-cards-v7',
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 24 * 60 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,

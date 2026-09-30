@@ -10,7 +10,8 @@ import {
   type Problem,
 } from '../engine/questionEngine';
 import type { AudioPlayer } from './audio';
-import { newGrants, type CardGrant, type EarnedCard } from './cards';
+import { emptySnapshot, newGrants, type CardGrant, type EarnedCard } from './cards';
+import { consecutivePlayDays, localDateKey } from './progress';
 import { Copy } from './copy';
 import {
   type DifficultyBest,
@@ -63,8 +64,6 @@ export class GameSession {
   private savedRound = false;
   private startedAt = 0;
   private stageFirstTry = 0;
-  private streakHit5 = false;
-  private streakHit10 = false;
   private hadRetry = false;
   private data: SaveData;
   private cheerTimer: ReturnType<typeof setTimeout> | undefined;
@@ -156,8 +155,6 @@ export class GameSession {
     this.missedCurrent = false;
     this.savedRound = false;
     this.stageFirstTry = 0;
-    this.streakHit5 = false;
-    this.streakHit10 = false;
     this.hadRetry = false;
     this.duration = 0;
     this.exitPrompt = false;
@@ -218,8 +215,6 @@ export class GameSession {
       this.stageFirstTry += 1;
       this.streak += 1;
       this.bestStreakThisRound = Math.max(this.bestStreakThisRound, this.streak);
-      if (this.streak >= 5) this.streakHit5 = true;
-      if (this.streak >= 10) this.streakHit10 = true;
     } else {
       this.streak = 0;
     }
@@ -248,15 +243,17 @@ export class GameSession {
 
     const stage = this.index / PROBLEMS_PER_STAGE;
     const finished = this.index === ROUND_SIZE;
+    this.data.stagesCompleted += 1;
+    this.notePlayDay();
     if (finished) {
       this.duration = Math.max(0, (this.now() - this.startedAt) / 1000);
       this.persistRound();
+    } else {
+      this.persist();
     }
     this.chest = this.grantCards(stage, finished);
     this.audio.playChest();
     this.stageFirstTry = 0;
-    this.streakHit5 = false;
-    this.streakHit10 = false;
     this.hadRetry = false;
     this.emit();
   }
@@ -338,12 +335,12 @@ export class GameSession {
     const owned = new Set(this.data.cards.map((card) => card.id));
     for (const card of this.earnedThisRound) owned.add(card.id);
     const todayBase = countToday(this.data.rounds, this.now());
+    const roundsByDifficulty = ([1, 2, 3, 4] as DifficultyId[]).map((id) => this.data.bests[id]?.roundsPlayed ?? 0);
+    const bestStarsByDifficulty = ([1, 2, 3, 4] as DifficultyId[]).map((id) => this.data.bests[id]?.bestStars ?? 0);
     const grants = newGrants(
-      {
+      emptySnapshot({
         stage,
         stageFirstTry: this.stageFirstTry,
-        streakHit5: this.streakHit5,
-        streakHit10: this.streakHit10,
         bestStreak: Math.max(this.data.bestStreak, this.bestStreakThisRound),
         hadRetry: this.hadRetry,
         roundFirstTry: this.firstTryCorrect,
@@ -354,8 +351,13 @@ export class GameSession {
         todayFirstTry: finished ? todayBase : todayBase + this.firstTryCorrect,
         cumulativeFirstTry: finished ? this.data.cumulativeFirstTry : this.data.cumulativeFirstTry + this.firstTryCorrect,
         roundsCompleted: totalRounds(this.data),
-        difficultiesCleared: clearedDifficulties(this.data),
-      },
+        stagesCompleted: this.data.stagesCompleted,
+        roundsByDifficulty,
+        bestStarsByDifficulty,
+        threeStarStreak: this.data.threeStarStreak,
+        consecutiveDays: consecutiveFrom(this.data.playDates, this.now()),
+        roundsToday: countRoundsToday(this.data.rounds, this.now()),
+      }),
       owned,
     );
     const earnedAt = new Date(this.now()).toISOString();
@@ -404,7 +406,15 @@ export class GameSession {
     };
     this.data.cumulativeFirstTry += this.firstTryCorrect;
     this.data.bestStreak = Math.max(this.data.bestStreak, this.bestStreakThisRound);
+    this.data.threeStarStreak = starCount >= 3 ? this.data.threeStarStreak + 1 : 0;
     this.persist();
+  }
+
+  private notePlayDay(): void {
+    const key = localDateKey(this.now());
+    if (this.data.playDates.includes(key)) return;
+    this.data.playDates.push(key);
+    this.data.playDates = this.data.playDates.slice(-120);
   }
 
   private persist(): void {
@@ -438,6 +448,15 @@ export class GameSession {
   }
 }
 
+function countRoundsToday(rounds: RoundRecord[], nowMs: number): number {
+  const today = localDateKey(nowMs);
+  return rounds.filter((round) => localDateKey(Date.parse(round.playedAt)) === today).length;
+}
+
+function consecutiveFrom(dates: readonly string[], nowMs: number): number {
+  return consecutivePlayDays(dates, nowMs);
+}
+
 function countToday(rounds: RoundRecord[], nowMs: number): number {
   const today = new Date(nowMs);
   return rounds.reduce((sum, round) => {
@@ -452,10 +471,6 @@ function countToday(rounds: RoundRecord[], nowMs: number): number {
 
 function totalRounds(data: SaveData): number {
   return ([1, 2, 3, 4] as DifficultyId[]).reduce((sum, difficulty) => sum + (data.bests[difficulty]?.roundsPlayed ?? 0), 0);
-}
-
-function clearedDifficulties(data: SaveData): number[] {
-  return ([1, 2, 3, 4] as DifficultyId[]).filter((difficulty) => (data.bests[difficulty]?.roundsPlayed ?? 0) > 0);
 }
 
 function freshSeed(): bigint {

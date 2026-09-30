@@ -1,15 +1,20 @@
 import { ALL_DIFFICULTIES, ROUND_SIZE, type Difficulty, type Problem } from '../engine/questionEngine';
-import { cardSvg } from '../game/cardArt';
 import { cardFaceUrl, lockedCardUrl, sceneArt } from '../game/cardFaces';
 import {
   CARDS,
   RARITY_LABEL,
-  correctLabel,
+  SERIES,
+  cardsInSeries,
   formatCardDate,
+  lockedCheer,
   resolveCard,
+  seriesName,
+  unlockStatusWithOwned,
   type CardDef,
   type EarnedCard,
+  type SeriesId,
 } from '../game/cards';
+import { consecutivePlayDays, progressFromSave } from '../game/progress';
 import {
   Copy,
   clock,
@@ -55,8 +60,8 @@ export function mountApp(session: GameSession, stage: Stage): void {
   buildPathNodes(ui.pathNodes);
   buildKeypad(ui.keypad, session);
   buildTrack(ui.track);
-  buildAlbum(ui.album);
-  ui.album.addEventListener('scroll', () => updatePager(ui.album, ui.albumPager), { passive: true });
+  buildSeriesTabs(ui, session);
+  buildAlbum(ui);
 
   bindTap(ui.start, () => session.startRound());
   bindTap(ui.openCards, () => session.openCards());
@@ -78,6 +83,8 @@ export function mountApp(session: GameSession, stage: Stage): void {
     ui.inspectTilt?.();
     ui.inspectTilt = undefined;
   });
+  bindTap(ui.inspectPrev, () => stepInspect(ui, session, -1));
+  bindTap(ui.inspectNext, () => stepInspect(ui, session, 1));
   bindTap(ui.chestCards, () => session.openCards());
   bindTap(ui.pet, () => {
     session.cheerPet();
@@ -171,7 +178,7 @@ function template(): string {
     <section id="home" class="screen screen-home">
       <header class="topbar">
         <div class="pill pill-star" id="stat-correct">${starSvg()}<span id="correct-count">0</span></div>
-        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/27</span></button>
+        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/60</span></button>
         <div class="spacer"></div>
         <div class="pill pill-days" id="stat-streak">${flameSvg()}<span id="streak-count">0天</span></div>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
@@ -253,8 +260,9 @@ function template(): string {
           <h1 class="album-title">我的卡片</h1>
           <p class="heart-progress" id="collected-label"></p>
         </div>
+        <div class="series-tabs" id="series-tabs"></div>
+        <p class="series-count" id="series-count">本系列 0/12</p>
         <div class="album" id="album"></div>
-        <div class="pager" id="album-pager" aria-hidden="true"></div>
         <div class="legacy" id="legacy" hidden></div>
       </div>
     </section>
@@ -280,9 +288,18 @@ function template(): string {
     </div>
     <div id="inspect" class="modal" hidden role="dialog" aria-modal="true">
       <div class="inspect-wrap">
-        <p id="inspect-say"></p>
-        <div id="inspect-card" class="inspect-card"></div>
-        <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
+        <div class="inspect-body">
+          <div id="inspect-card" class="inspect-card"></div>
+          <div class="inspect-copy can-scroll">
+            <p id="inspect-say"></p>
+            <div id="inspect-meta"></div>
+          </div>
+        </div>
+        <div class="inspect-nav">
+          <button class="btn btn-blue" id="inspect-prev" type="button">上一张</button>
+          <button class="btn btn-green" id="close-inspect" type="button">${Copy.back}</button>
+          <button class="btn btn-blue" id="inspect-next" type="button">下一张</button>
+        </div>
       </div>
     </div>
     <div id="exit-modal" class="modal" hidden role="dialog" aria-modal="true">
@@ -313,7 +330,9 @@ interface Ui {
   start: HTMLButtonElement;
   pet: HTMLButtonElement;
   pathNodes: HTMLElement;
-  albumPager: HTMLElement;
+  seriesTabs: HTMLElement;
+  seriesCount: HTMLElement;
+  seriesId: SeriesId;
   exit: HTMLButtonElement;
   stageLabel: HTMLElement;
   progress: HTMLElement;
@@ -351,6 +370,9 @@ interface Ui {
   inspect: HTMLElement;
   inspectCard: HTMLElement;
   inspectSay: HTMLElement;
+  inspectMeta: HTMLElement;
+  inspectPrev: HTMLButtonElement;
+  inspectNext: HTMLButtonElement;
   closeInspect: HTMLButtonElement;
   inspectTilt?: () => void;
   exitModal: HTMLElement;
@@ -379,7 +401,9 @@ function bind(root: ParentNode): Ui {
     start: q('start'),
     pet: q('pet-dino'),
     pathNodes: q('path-nodes'),
-    albumPager: q('album-pager'),
+    seriesTabs: q('series-tabs'),
+    seriesCount: q('series-count'),
+    seriesId: 'partners',
     exit: q('exit'),
     stageLabel: q('stage-label'),
     progress: q('progress'),
@@ -417,6 +441,9 @@ function bind(root: ParentNode): Ui {
     inspect: q('inspect'),
     inspectCard: q('inspect-card'),
     inspectSay: q('inspect-say'),
+    inspectMeta: q('inspect-meta'),
+    inspectPrev: q('inspect-prev'),
+    inspectNext: q('inspect-next'),
     closeInspect: q('close-inspect'),
     exitModal: q('exit-modal'),
     keepPlaying: q('keep-playing'),
@@ -598,24 +625,40 @@ function buildTrack(track: HTMLElement): void {
   }
 }
 
-function buildAlbum(album: HTMLElement): void {
-  for (const def of CARDS) {
+function buildSeriesTabs(ui: Ui, session: GameSession): void {
+  for (const series of SERIES) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'series-tab';
+    button.dataset.series = series.id;
+    button.textContent = series.name;
+    bindTap(button, () => {
+      ui.seriesId = series.id;
+      buildAlbum(ui);
+      sync(ui, session);
+    });
+    ui.seriesTabs.append(button);
+  }
+}
+
+function buildAlbum(ui: Ui): void {
+  ui.album.replaceChildren();
+  ui.album.dataset.series = ui.seriesId;
+  for (const def of cardsInSeries(ui.seriesId)) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `tc locked rarity-${def.rarity}`;
     button.dataset.card = def.id;
     button.innerHTML = `
       <div class="tc-tilt">
-        <div class="tc-art">${cardPicture(def, true)}</div>
+        <div class="tc-art">${cardPicture(def, true, true)}</div>
         <div class="foil"></div>
-        <span class="q-mark" aria-hidden="true">?</span>
-        <span class="lock-mini" aria-hidden="true">🔒</span>
         <b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b>
-        <strong class="tc-name">${def.name}</strong>
+        <strong class="tc-name">神秘卡片</strong>
         <em class="tc-detail"></em>
         <small class="tc-foot"></small>
       </div>`;
-    album.append(button);
+    ui.album.append(button);
   }
 }
 
@@ -629,7 +672,7 @@ function sync(ui: Ui, session: GameSession): void {
   const starTotal = session.save.rounds.reduce((sum, round) => sum + round.stars, 0);
   ui.correctCount.textContent = String(starTotal);
   ui.cardCount.textContent = `${catalogOwned}/${CARDS.length}`;
-  const days = consecutiveDays(session.save.rounds);
+  const days = consecutivePlayDays(session.save.playDates, Date.now());
   ui.streakCount.textContent = `${days}天`;
   ui.correctCount.parentElement?.setAttribute('aria-label', `星星 ${starTotal}`);
   ui.streakCount.parentElement?.setAttribute('aria-label', `连续 ${days} 天`);
@@ -680,8 +723,6 @@ function sync(ui: Ui, session: GameSession): void {
       node.innerHTML = markup;
     }
   }
-  updatePager(ui.album, ui.albumPager);
-
   for (const button of ui.mutes) {
     const label = session.isMuted ? Copy.unmute : Copy.mute;
     if (button.dataset.view !== label) {
@@ -721,10 +762,10 @@ function sync(ui: Ui, session: GameSession): void {
   ui.scoreText.innerHTML = `<span class="got">${session.firstTryCorrect}</span><span class="slash">/</span><span class="total">${ROUND_SIZE}</span>`;
   ui.timeText.textContent = clock(session.duration);
   ui.streakText.textContent = `${Copy.bestStreakLabel} ${session.bestStreakThisRound}`;
-  const cheer = session.save.cards.find((card) => card.id === 'cheer-up');
+  const cheer = session.save.cards.find((card) => card.id === 'cheer-lamb');
   ui.consolation.innerHTML = gentle && cheer ? miniCard(cheer) : '';
   ui.earnedRow.innerHTML = session.earnedThisRound
-    .filter((card) => card.id !== 'cheer-up' || !gentle)
+    .filter((card) => card.id !== 'cheer-lamb' || !gentle)
     .slice(0, 4)
     .map((card) => {
       const def = resolveCard(card.id);
@@ -733,11 +774,18 @@ function sync(ui: Ui, session: GameSession): void {
     .join('');
 
   const owned = new Map(session.save.cards.map((card) => [card.id, card]));
+  const catalogIds = session.save.cards.map((card) => card.id);
+  for (const tab of ui.seriesTabs.querySelectorAll<HTMLButtonElement>('.series-tab')) {
+    tab.classList.toggle('on', tab.dataset.series === ui.seriesId);
+  }
+  const seriesCards = cardsInSeries(ui.seriesId);
+  const seriesOwned = seriesCards.filter((card) => owned.has(card.id)).length;
+  ui.seriesCount.textContent = `本系列 ${seriesOwned}/12`;
   for (const button of ui.album.querySelectorAll<HTMLButtonElement>('.tc')) {
     const id = button.dataset.card ?? '';
     const def = resolveCard(id);
     if (!def) continue;
-    paintOwned(button, def, owned.get(id), session);
+    paintOwned(button, def, owned.get(id), session, catalogIds);
   }
   const legacy = session.save.cards.filter((card) => card.id.startsWith('legacy:'));
   ui.legacy.hidden = legacy.length === 0;
@@ -746,7 +794,7 @@ function sync(ui: Ui, session: GameSession): void {
         .map((card) => {
           const def = resolveCard(card.id);
           if (!def) return '';
-          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)} · ${correctLabel(card.correctCount, true)}</small></div></button>`;
+          return `<button type="button" class="tc rarity-${def.rarity}" data-card="${def.id}"><div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${card.achievement}</em><small class="tc-foot">${formatCardDate(card.earnedAt)}</small></div></button>`;
         })
         .join('')}</div>`
     : '';
@@ -763,18 +811,24 @@ function sync(ui: Ui, session: GameSession): void {
   }
 }
 
-function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard | undefined, session: GameSession): void {
+function paintOwned(
+  button: HTMLButtonElement,
+  def: CardDef,
+  earned: EarnedCard | undefined,
+  session: GameSession,
+  ownedIds: string[],
+): void {
   button.classList.toggle('locked', !earned);
-  const hint = unlockHint(def, session);
-  button.setAttribute('aria-label', earned ? `${def.name}，${def.line}` : `${def.name}，${Copy.lockedCard}，${hint}`);
+  const hint = unlockHint(def, session, ownedIds);
+  button.setAttribute('aria-label', earned ? `${def.name}，${def.line}` : `神秘卡片，${Copy.lockedCard}，${hint}`);
   const name = button.querySelector('.tc-name');
   const detail = button.querySelector('.tc-detail');
   const foot = button.querySelector('.tc-foot');
-  if (name) name.textContent = earned ? def.name : '';
+  if (name) name.textContent = earned ? def.name : '神秘卡片';
   if (detail) detail.textContent = earned ? '' : hint;
   if (foot) foot.textContent = '';
   const face = button.querySelector<HTMLImageElement>('.tc-art img');
-  if (face) face.src = earned ? (cardFaceUrl(def.id) ?? lockedCardUrl()) : lockedCardUrl();
+  if (face) face.src = earned ? cardFaceUrl(def.id) : lockedCardUrl();
 }
 
 function paintChest(ui: Ui, session: GameSession): void {
@@ -810,10 +864,10 @@ function chestCardShell(def: CardDef): string {
   return `<div class="tc-tilt"><div class="tc-art">${cardPicture(def)}</div><strong class="tc-name">${def.name}</strong><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b></div>`;
 }
 
-function cardPicture(def: CardDef, locked = false): string {
+function cardPicture(def: CardDef, locked = false, lazy = false): string {
   const src = locked ? lockedCardUrl() : cardFaceUrl(def.id);
-  if (!src) return cardSvg(def);
-  return `<img src="${src}" alt="" draggable="false">`;
+  const loading = lazy ? ' loading="lazy"' : '';
+  return `<img src="${src}" alt="" draggable="false" decoding="async"${loading}>`;
 }
 
 function miniCard(earned: EarnedCard): string {
@@ -825,13 +879,19 @@ function miniCard(earned: EarnedCard): string {
 function openInspect(ui: Ui, id: string, session: GameSession): void {
   const def = resolveCard(id);
   if (!def) return;
+  ui.inspect.dataset.card = id;
   const earned = session.save.cards.find((card) => card.id === id);
-  const hint = unlockHint(def, session);
+  const ownedIds = session.save.cards.map((card) => card.id);
+  const hint = unlockHint(def, session, ownedIds);
+  const status = unlockStatusWithOwned(def.id, progressFromSave(session.save, Date.now()), ownedIds);
   ui.inspectCard.className = `inspect-card rarity-${def.rarity}${earned ? '' : ' locked'}`;
-  ui.inspectSay.textContent = earned ? def.line : hint;
+  ui.inspectSay.textContent = earned ? def.line : lockedCheer(def, status);
+  ui.inspectMeta.innerHTML = earned
+    ? `<p>${def.story}</p><p>${seriesName(def.series)} · ${RARITY_LABEL[def.rarity]} · ${formatCardDate(earned.earnedAt)}</p><p>获得条件：${def.condition}</p>`
+    : `<p>神秘卡片</p><p>${hint}</p><p>获得条件：${def.condition}</p>`;
   ui.inspectCard.innerHTML = earned
     ? chestCardShell(def)
-    : `<div class="tc-tilt"><div class="tc-art">${cardPicture(def, true)}</div><em class="tc-detail">${hint}</em></div>`;
+    : `<div class="tc-tilt"><div class="tc-art">${cardPicture(def, true)}</div><strong class="tc-name">神秘卡片</strong><em class="tc-detail">${hint}</em></div>`;
   ui.inspect.hidden = false;
   ui.inspectTilt?.();
   ui.inspectTilt = bindInspectTilt(ui.inspectCard);
@@ -995,37 +1055,6 @@ async function share(session: GameSession): Promise<void> {
   }
 }
 
-function todayCorrect(rounds: { playedAt: string; firstTryCorrect: number }[], nowMs = Date.now()): number {
-  const now = new Date(nowMs);
-  return rounds.reduce((sum, round) => {
-    const played = new Date(round.playedAt);
-    const same =
-      played.getFullYear() === now.getFullYear() &&
-      played.getMonth() === now.getMonth() &&
-      played.getDate() === now.getDate();
-    return same ? sum + round.firstTryCorrect : sum;
-  }, 0);
-}
-
-function consecutiveDays(rounds: { playedAt: string }[], nowMs = Date.now()): number {
-  const keys = new Set(
-    rounds.map((round) => {
-      const played = new Date(round.playedAt);
-      return `${played.getFullYear()}-${played.getMonth()}-${played.getDate()}`;
-    }),
-  );
-  const cursor = new Date(nowMs);
-  const key = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-  if (!keys.has(key(cursor))) cursor.setDate(cursor.getDate() - 1);
-  if (!keys.has(key(cursor))) return 0;
-  let count = 0;
-  while (keys.has(key(cursor))) {
-    count += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return count;
-}
-
 function buildPathNodes(board: HTMLElement): void {
   for (const difficulty of ALL_DIFFICULTIES) {
     const node = document.createElement('div');
@@ -1036,24 +1065,12 @@ function buildPathNodes(board: HTMLElement): void {
   }
 }
 
-function updatePager(album: HTMLElement, pager: HTMLElement): void {
-  const width = album.clientWidth;
-  if (width < 2) {
-    pager.replaceChildren();
-    return;
-  }
-  const pages = Math.max(1, Math.ceil(album.scrollWidth / width - 0.05));
-  const index = Math.min(pages - 1, Math.round(album.scrollLeft / width));
-  const view = `${pages}:${index}`;
-  if (pager.dataset.view === view) return;
-  pager.dataset.view = view;
-  pager.replaceChildren(
-    ...Array.from({ length: pages }, (_, page) => {
-      const bit = document.createElement('i');
-      bit.className = page === index ? 'on' : '';
-      return bit;
-    }),
-  );
+function stepInspect(ui: Ui, session: GameSession, delta: number): void {
+  const row = cardsInSeries(ui.seriesId);
+  const current = ui.inspect.dataset.card ?? row[0]?.id ?? '';
+  const index = Math.max(0, row.findIndex((card) => card.id === current));
+  const next = row[(index + delta + row.length) % row.length];
+  if (next) openInspect(ui, next.id, session);
 }
 
 function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
@@ -1062,70 +1079,9 @@ function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
   return (session.bestFor(previous)?.roundsPlayed ?? 0) > 0;
 }
 
-function unlockHint(def: CardDef, session: GameSession): string {
-  const save = session.save;
-  const rounds = save.rounds.length;
-  const streak = save.bestStreak;
-  const correct = save.cumulativeFirstTry;
-  const played = (id: Difficulty) => save.bests[id]?.roundsPlayed ?? 0;
-  const stars = (id: Difficulty) => save.bests[id]?.bestStars ?? 0;
-  const pair = (label: string, have: number, need: number) => `${label} (${Math.min(have, need)}/${need})`;
-  switch (def.id) {
-    case 'sprout':
-      return pair('完成1关解锁', rounds, 1);
-    case 'perfect-stage':
-      return '十题全对解锁 (0/1)';
-    case 'retry-heart':
-      return '再试一次解锁 (0/1)';
-    case 'flawless':
-      return '零错误解锁 (0/1)';
-    case 'two-stars':
-      return pair('两颗星解锁', Math.max(stars(1), stars(2), stars(3), stars(4)), 2);
-    case 'three-stars':
-      return pair('三颗星解锁', Math.max(stars(1), stars(2), stars(3), stars(4)), 3);
-    case 'today-30':
-      return pair('今天30题解锁', todayCorrect(save.rounds), 30);
-    case 'today-60':
-      return pair('今天60题解锁', todayCorrect(save.rounds), 60);
-    case 'streak-5':
-      return pair('连对5题解锁', streak, 5);
-    case 'streak-10':
-      return pair('连对10题解锁', streak, 10);
-    case 'streak-15':
-      return pair('连对15题解锁', streak, 15);
-    case 'one-breath':
-    case 'cheer-up':
-      return pair('完成1轮解锁', rounds, 1);
-    case 'easy-clear':
-      return pair('轻松通关解锁', played(1), 1);
-    case 'carry-clear':
-      return pair('进位通关解锁', played(2), 1);
-    case 'advanced-clear':
-      return pair('进阶通关解锁', played(3), 1);
-    case 'challenge-clear':
-    case 'night-sky':
-      return pair('挑战通关解锁', played(4), 1);
-    case 'challenge-3':
-      return `挑战3星解锁 ${Math.min(stars(4), 3)}/3`;
-    case 'melon-sweet':
-      return `轻松3星解锁 ${Math.min(stars(1), 3)}/3`;
-    case 'correct-50':
-      return pair('答对50题解锁', correct, 50);
-    case 'correct-100':
-      return pair('答对100题解锁', correct, 100);
-    case 'correct-300':
-      return pair('答对300题解锁', correct, 300);
-    case 'panda-3':
-      return pair('完成3轮解锁', rounds, 3);
-    case 'panda-5':
-      return pair('完成5轮解锁', rounds, 5);
-    case 'guardian-10':
-      return pair('完成10轮解锁', rounds, 10);
-    case 'all-diff':
-      return `四个难度解锁 ${[1, 2, 3, 4].filter((id) => played(id as Difficulty) > 0).length}/4`;
-    default:
-      return def.condition.includes('解锁') ? def.condition : `${def.condition}解锁 (0/1)`;
-  }
+function unlockHint(def: CardDef, session: GameSession, ownedIds: string[]): string {
+  if (def.id.startsWith('legacy:')) return '以前的贴纸';
+  return unlockStatusWithOwned(def.id, progressFromSave(session.save, Date.now()), ownedIds).text;
 }
 
 function floatHearts(anchor: HTMLElement): void {

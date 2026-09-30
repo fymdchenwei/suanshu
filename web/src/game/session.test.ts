@@ -111,10 +111,10 @@ describe('GameSession', () => {
     expect(session.screen).toBe('results');
     expect(session.firstTryCorrect).toBe(18);
     expect(session.stars).toBe(1);
-    const cheer = store.data.cards.find((card) => card.id === 'cheer-up');
+    const cheer = store.data.cards.find((card) => card.id === 'cheer-lamb');
     expect(cheer?.achievement).toBe('再加油！这次答对 18/30 题');
     expect(cheer?.correctCount).toBe(18);
-    expect(store.data.cards.some((card) => card.id === 'three-stars')).toBe(false);
+    expect(store.data.cards.some((card) => card.id === 'star-penguin')).toBe(false);
   });
 
   it('remembers mute and difficulty, and keeps migrated sticker cards', () => {

@@ -94,28 +94,36 @@ test('plays a colourful round and collects cards', async ({ page }) => {
       detail: node.querySelector('.tc-detail')?.textContent ?? '',
     })),
   );
-  expect(album).toHaveLength(27);
-  expect(new Set(album.map((card) => card.label)).size).toBe(27);
-  expect(album.filter((card) => card.locked).length).toBeGreaterThan(10);
+  expect(album).toHaveLength(12);
+  expect(new Set(album.map((card) => card.label)).size).toBe(12);
+  await expect(page.locator('#series-count')).toContainText('/12');
+  await expect(page.locator('#collected-label')).toContainText('/60');
+  expect(album.filter((card) => card.locked).length).toBeGreaterThan(0);
   for (const card of album.filter((card) => card.locked)) {
     expect(card.detail).toMatch(/解锁/);
-    expect(card.name).toBe('');
+    expect(card.name).toBe('神秘卡片');
   }
   await page.screenshot({ path: `${shots}/card_book.png` });
   await page.locator('#album .tc').first().tap();
   await expect(page.locator('#inspect-say')).toBeVisible();
   await expect(page.locator('#inspect-say')).not.toHaveText('');
+  await expect(page.locator('#inspect-meta')).toContainText('闯关伙伴');
+  const ownedLine = await page.locator('#inspect-say').innerText();
+  await page.locator('#inspect-next').tap();
+  await expect(page.locator('#inspect-say')).not.toHaveText(ownedLine);
+  const closeBox = await page.locator('#close-inspect').boundingBox();
+  expect(closeBox).toBeTruthy();
+  expect(closeBox!.y + closeBox!.height).toBeLessThanOrEqual(390);
   await page.screenshot({ path: `${shots}/card_inspect.png` });
   await page.locator('#close-inspect').tap();
-  const albumBox = page.locator('#album');
-  await albumBox.evaluate((node) => {
-    node.scrollLeft = node.scrollWidth;
-  });
+  await page.getByRole('button', { name: '陪伴岛' }).tap();
+  await expect(page.locator('#series-count')).toContainText('本系列');
   await page.waitForTimeout(200);
   await page.screenshot({ path: `${shots}/card_book_end.png` });
   await page.locator('#album .tc.locked').last().tap();
   await expect(page.locator('#inspect-say')).toBeVisible();
   await expect(page.locator('#inspect-card')).toHaveClass(/locked/);
+  await expect(page.locator('#inspect-card .tc-name')).toHaveText('神秘卡片');
   await page.screenshot({ path: `${shots}/card_locked.png` });
   await page.locator('#close-inspect').tap();
 
@@ -125,7 +133,7 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   expect(data.rounds.length).toBe(1);
   expect(data.cards.length).toBeGreaterThan(0);
   expect(data.cards.some((card) => card.achievement.includes('连对 10 题'))).toBeTruthy();
-  expect(data.cards.some((card) => card.id === 'flawless')).toBeTruthy();
+  expect(data.cards.some((card) => card.id === 'crown-dragon')).toBeTruthy();
 
   const manifest = await page.request.get('/suanshu/manifest.webmanifest');
   expect(manifest.ok()).toBeTruthy();
