@@ -1022,7 +1022,10 @@ function floatHearts(anchor: HTMLElement): void {
 }
 
 function confettiBits(): string {
-  return Array.from({ length: 14 }, (_, index) => `<i style="--i:${index}"></i>`).join('');
+  return Array.from({ length: 22 }, (_, index) => {
+    const dx = (index % 2 === 0 ? -1 : 1) * (18 + ((index * 13) % 48));
+    return `<i style="--i:${index};--dx:${dx}px"></i>`;
+  }).join('');
 }
 
 function cheerDinoSvg(): string {

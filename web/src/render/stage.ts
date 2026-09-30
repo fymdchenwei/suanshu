@@ -414,8 +414,8 @@ export class Stage {
       return;
     }
     const sway = Math.sin(time * 0.28) * 0.06;
-    this.camera.position.set(0.05 + sway, 2.05, 5.35);
-    this.camera.lookAt(0.02, 0.55, 0.05);
+    this.camera.position.set(-0.05 + sway, 2.2, 6.35);
+    this.camera.lookAt(-0.08, 0.42, 0.05);
   }
 
   private applySky(): void {
@@ -482,8 +482,8 @@ export class Stage {
     this.addTufts(this.home, 0.3, 2.05, 18);
 
     const dino = createDino();
-    dino.rig.group.position.set(-0.05, ground, 0.35);
-    dino.rig.group.scale.setScalar(0.92);
+    dino.rig.group.position.set(-0.22, ground, 0.42);
+    dino.rig.group.scale.setScalar(0.78);
     dino.rig.group.add(createShadow());
     this.home.add(dino.rig.group);
 

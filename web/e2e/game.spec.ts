@@ -28,7 +28,21 @@ test('plays a colourful round and collects cards', async ({ page }) => {
 
   await expect(page.getByRole('button', { name: '开始闯关' })).toBeVisible();
   await expect(page.locator('#rotate')).toBeHidden();
+  const covered = await page.evaluate(() => {
+    const hero = document.querySelector('#home-hero')?.getBoundingClientRect();
+    if (!hero) return ['missing-hero'];
+    return [...document.querySelectorAll('.diff')].flatMap((node) => {
+      const box = node.getBoundingClientRect();
+      const overlaps = box.left < hero.right - 8 && box.right > hero.left + 8 && box.top < hero.bottom && box.bottom > hero.top;
+      return overlaps ? [node.getAttribute('aria-label') ?? 'difficulty'] : [];
+    });
+  });
+  expect(covered, '难度按钮挡住了小恐龙').toEqual([]);
   await page.screenshot({ path: `${shots}/home_island.png` });
+  await page.locator('#pet-dino').click();
+  await page.waitForTimeout(160);
+  await expect(page.locator('.heart-pop').first()).toBeVisible();
+  await page.screenshot({ path: `${shots}/home_tap.png` });
 
   await page.getByRole('button', { name: '轻松' }).click();
   await page.getByRole('button', { name: '开始闯关' }).click();
@@ -45,7 +59,15 @@ test('plays a colourful round and collects cards', async ({ page }) => {
     if (step === 9) {
       await expect(page.locator('#chest')).toBeVisible();
       await expect(page.locator('#reveal-card')).toBeVisible();
-      await page.waitForTimeout(700);
+      const rarity = page.locator('#chest #reveal-card .tc-rarity');
+      for (let reveal = 0; reveal < 4; reveal += 1) {
+        if ((await rarity.innerText()) === '稀有') break;
+        await page.locator('#dismiss-chest').tap();
+        await expect(page.locator('#chest')).toBeVisible();
+      }
+      await expect(rarity).toHaveText('稀有');
+      await expect(page.locator('#chest-copy')).not.toHaveText('');
+      await page.waitForTimeout(500);
       await page.screenshot({ path: `${shots}/chest_card.png` });
     }
     await clearChest(page);

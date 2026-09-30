@@ -716,8 +716,8 @@ body[data-screen='home'] {
   scroll-snap-align: center;
   border-radius: 18px;
   padding: 0;
-  flex: 0 0 176px;
-  width: 176px;
+  flex: 0 0 208px;
+  width: 208px;
   height: 100%;
   background: transparent;
   perspective: 700px;
@@ -774,7 +774,7 @@ body[data-screen='home'] {
 .rarity-rare .tc-tilt,
 .rarity-epic .tc-tilt,
 .rarity-legend .tc-tilt {
-  box-shadow: inset 0 0 0 3px #ffcf4d, 0 8px 0 rgba(180, 120, 0, 0.2);
+  box-shadow: inset 0 0 0 6px #ffcf4d, 0 0 0 2px #e09600, 0 8px 0 rgba(180, 120, 0, 0.2);
 }
 .rarity-rare .foil { opacity: 0.7; }
 .rarity-epic .foil,
@@ -846,20 +846,20 @@ body[data-screen='home'] {
 .chest-pop { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .chest-pop i {
   position: absolute;
-  top: 12%;
-  left: calc(6% + var(--i) * 6.4%);
-  width: 8px;
-  height: 12px;
+  top: -6%;
+  left: calc(4% + var(--i) * 4.3%);
+  width: 11px;
+  height: 16px;
   border-radius: 2px;
-  background: hsl(calc(var(--i) * 28), 90%, 68%);
-  animation: pop-bit 1.4s ease-in infinite;
-  animation-delay: calc(var(--i) * -0.12s);
+  background: hsl(calc(var(--i) * 28), 92%, 66%);
+  animation: confetti-fall 2.6s linear infinite;
+  animation-delay: calc(var(--i) * -0.18s);
 }
 .chest-stage {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 96px 214px minmax(0, 1fr);
+  grid-template-columns: 96px 228px minmax(0, 1fr);
   align-items: center;
   justify-items: center;
   gap: 12px;
@@ -906,7 +906,7 @@ body[data-screen='home'] {
 }
 
 .reveal-card {
-  width: 210px;
+  width: 220px;
   height: 252px;
   margin: 0;
   animation: cardIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -915,6 +915,7 @@ body[data-screen='home'] {
 .reveal-card .tc-detail,
 .reveal-card .tc-foot { font-size: 14px; color: #3a281c; }
 .reveal-card .tc-tilt { height: 100%; }
+.reveal-card .tc-rarity { font-size: 16px; padding: 4px 12px; }
 .reveal-card[hidden] { display: none !important; }
 
 .inspect-wrap {
@@ -1064,6 +1065,11 @@ body.glow-soft::before { box-shadow: inset 0 0 28px rgba(255, 180, 120, 0.45); }
   to { transform: translate(var(--dx), -70px) scale(0.4); opacity: 0; }
 }
 
+@keyframes confetti-fall {
+  0% { transform: translateY(-8px) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), 320px) rotate(220deg); opacity: 0.85; }
+}
+
 @keyframes tilt {
   0%, 100% { transform: rotate(0deg); }
   40%, 70% { transform: rotate(90deg); }
@@ -1075,8 +1081,8 @@ body.glow-soft::before { box-shadow: inset 0 0 28px rgba(255, 180, 120, 0.45); }
   position: fixed;
   z-index: 6;
   font-style: normal;
-  font-size: 22px;
-  color: #ff5d8a;
+  font-size: 28px;
+  color: #ff4d7a;
   pointer-events: none;
   animation: heart-up 0.8s ease-out forwards;
 }
