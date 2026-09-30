@@ -41,6 +41,7 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await page.getByRole('button', { name: '轻松' }).click();
   await page.getByRole('button', { name: '开始闯关' }).click();
   await expect(page.locator('#quiz')).toBeVisible();
+  await page.screenshot({ path: `${shots}/quiz_page.png` });
   await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-variance') || 0) > 12);
   await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-frame-ms') || 0) > 0);
   const renderer = await page.locator('#stage').getAttribute('data-renderer');
@@ -103,6 +104,8 @@ test('plays a colourful round and collects cards', async ({ page }) => {
     expect(card.detail).toMatch(/解锁/);
     expect(card.name).toBe('神秘卡片');
   }
+  await expect(page.locator('#album .tc').first().locator('img')).toHaveAttribute('src', /cards\/card-sprout-dragon\.webp$/);
+  await expect(page.locator('#album .tc.locked').first().locator('img')).toHaveAttribute('src', /card-locked\.webp$/);
   await page.screenshot({ path: `${shots}/card_book.png` });
   await page.locator('#album .tc').first().tap();
   await expect(page.locator('#inspect-say')).toBeVisible();

@@ -59,19 +59,7 @@ export default defineConfig({
       workbox: {
         cacheId: 'suanshu-v7',
         globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,webmanifest}'],
-        globIgnores: ['**/art/cards/**'],
         navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /\/art\/cards\/.*\.webp$/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'suanshu-cards-v7',
-              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 24 * 60 * 60 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,

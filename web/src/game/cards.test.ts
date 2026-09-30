@@ -45,10 +45,10 @@ describe('card catalog', () => {
       expect(card.line.length).toBeGreaterThan(4);
       expect(card.locked).toContain('{n}');
       expect(resolveCard(card.id)?.id).toBe(card.id);
-      expect(FILES.has(cardFaceFile(card.id))).toBe(true);
+      expect(cardFaceFile(card.id)).toBe(`card-${card.id}.webp`);
+      expect(FILES.has(`card-${card.id}.webp`)).toBe(true);
     }
-    expect(cardFaceFile('sprout-dragon')).toBe('card-sprout-dragon.webp');
-    expect(cardFaceFile('brave-lion')).not.toBe('card-brave-lion.webp');
+    expect(FILES.size).toBe(CARDS.length);
     for (const name of ['萌芽小龙', '云朵精灵', '数学小机器人', '草莓猫咪', '星星仙子', '星际小兔']) {
       expect(CARDS.some((card) => card.name === name)).toBe(true);
     }

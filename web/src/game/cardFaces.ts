@@ -40,10 +40,20 @@ export function sceneArt(): { home: string; reveal: string; island: string; chee
 
 const PRELOAD = ['bg-home.webp', 'bg-reveal.webp', 'sprite-island-dino.webp', 'sprite-dino-cheer.webp', 'card-locked.webp'];
 
+function warm(src: string): void {
+  const image = new Image();
+  image.decoding = 'async';
+  image.src = src;
+}
+
 export function preloadArt(): void {
-  for (const file of PRELOAD) {
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = artUrl(file);
-  }
+  for (const file of PRELOAD) warm(artUrl(file));
+  const cards = [...CARD_ART_FILES];
+  let index = 0;
+  const pump = () => {
+    for (const file of cards.slice(index, index + 6)) warm(artUrl(`cards/${file}`));
+    index += 6;
+    if (index < cards.length) window.setTimeout(pump, 80);
+  };
+  window.setTimeout(pump, 400);
 }
