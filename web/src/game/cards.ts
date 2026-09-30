@@ -31,6 +31,8 @@ export interface CardDef {
   name: string;
   rarity: Rarity;
   condition: string;
+  /** A short cheer shown when this card is opened. */
+  line: string;
   art: ArtKind;
   sky: [string, string];
   ground: string;
@@ -81,6 +83,36 @@ const RARITY_RANK: Record<Rarity, number> = {
   epic: 1,
   rare: 2,
   common: 3,
+};
+
+const CHEER: Record<string, string> = {
+  sprout: '第一关完成啦，萌芽小龙为你鼓掌！',
+  'perfect-stage': '这一关十题全对，奖章亮晶晶！',
+  'streak-5': '你连对了5题，太棒啦！',
+  'streak-10': '连对十题，彩虹都为你亮起来！',
+  'streak-15': '连对十五题，你是闪电小冠军！',
+  'one-breath': '三十题一口气做完，火箭也起飞啦！',
+  flawless: '三十题全部一次答对，皇冠属于你！',
+  'two-stars': '两颗星到手，奖杯为你闪亮！',
+  'three-stars': '三颗星！小恐龙为你欢呼！',
+  'cheer-up': '小恐龙抱一抱，下一轮会更顺！',
+  'easy-clear': '轻松难度通关，草地都变绿啦！',
+  'carry-clear': '进位也难不倒你，小桥为你搭好啦！',
+  'advanced-clear': '进阶难度完成，你又爬上了一座小山！',
+  'challenge-clear': '挑战难度通关，城堡大门为你打开！',
+  'challenge-3': '挑战难度三颗星，你是小岛上的小国王！',
+  'melon-sweet': '轻松难度三颗星，来一口甜甜西瓜！',
+  'today-30': '今天答对三十题，你是今日之星！',
+  'today-60': '今天答对六十题，冠军就是你！',
+  'correct-50': '累计答对五十题，花田为你开花！',
+  'correct-100': '一百题都答对啦，彩虹围着你转！',
+  'correct-300': '三百题！这是传说级的努力！',
+  'panda-3': '完成三轮，熊猫来当你的伙伴！',
+  'panda-5': '完成五轮，熊猫把宝箱推给你！',
+  'guardian-10': '十轮都完成啦，小岛有你守护！',
+  'all-diff': '四个难度都闯过，四季小岛为你换新装！',
+  'night-sky': '挑战难度的夜空里，星星陪你航行！',
+  'retry-heart': '答错也没关系，你又试了一次，真勇敢！',
 };
 
 export const CARDS: CardDef[] = [
@@ -142,7 +174,18 @@ function card(
   accent: string,
   accent2: string,
 ): CardDef {
-  return { id, name, rarity, condition, art, sky, ground, accent, accent2 };
+  return {
+    id,
+    name,
+    rarity,
+    condition,
+    line: CHEER[id] ?? '你真棒，继续加油！',
+    art,
+    sky,
+    ground,
+    accent,
+    accent2,
+  };
 }
 
 export function cardById(id: string): CardDef | undefined {
@@ -160,6 +203,7 @@ export function resolveCard(id: string): CardDef | undefined {
     name: legacy.name,
     rarity: 'rare',
     condition: '以前收集的贴纸',
+    line: '这张以前的贴纸也在为你加油！',
     art: legacy.art,
     sky: legacy.sky,
     ground: legacy.ground,

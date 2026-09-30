@@ -61,6 +61,10 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await expect(page.locator('#album .tc').first()).toBeVisible();
   await page.waitForTimeout(450);
   await page.screenshot({ path: `${shots}/card_book.png` });
+  await page.locator('#album .tc').first().tap();
+  await expect(page.locator('#inspect-say')).toBeVisible();
+  await page.screenshot({ path: `${shots}/card_inspect.png` });
+  await page.locator('#close-inspect').tap();
 
   const saved = await page.evaluate(() => localStorage.getItem('suanshu.web.v1'));
   expect(saved).toBeTruthy();
@@ -230,9 +234,12 @@ test('one tap reaches each control on an iPhone', async ({ page }) => {
   await mute.tap();
   await expect(mute).toHaveAttribute('aria-label', '打开声音');
 
+  const easy = page.locator('#diff-row .diff').nth(0);
+  await expect(easy).toHaveAttribute('aria-selected', 'true');
   const carry = page.locator('#diff-row .diff').nth(1);
   await carry.tap();
-  await expect(carry).toHaveAttribute('aria-selected', 'true');
+  await expect(carry).not.toHaveAttribute('aria-selected', 'true');
+  await expect(easy).toHaveAttribute('aria-selected', 'true');
 
   await page.getByRole('button', { name: '开始闯关' }).tap();
   await expect(page.locator('#quiz')).toBeVisible();
@@ -273,10 +280,10 @@ test('one tap reaches each control on an iPhone', async ({ page }) => {
   const dismiss = page.locator('#dismiss-chest');
   const dismissBox = await dismiss.boundingBox();
   expect(dismissBox!.height).toBeGreaterThanOrEqual(44);
-  const title = await page.locator('#chest-title').innerText();
+  const title = await page.locator('#reveal-card .tc-name').innerText();
   await dismiss.tap();
   if (await page.locator('#chest').isVisible()) {
-    await expect(page.locator('#chest-title')).not.toHaveText(title);
+    await expect(page.locator('#reveal-card .tc-name')).not.toHaveText(title);
   }
   expect(errors, errors.join('\n')).toEqual([]);
 });

@@ -1,7 +1,5 @@
 import {
   BoxGeometry,
-  CapsuleGeometry,
-  ConeGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -39,7 +37,7 @@ export interface DinoAnim {
 }
 
 const eyeWhite = new MeshBasicMaterial({ color: 0xffffff });
-const eyeInk = new MeshBasicMaterial({ color: 0x241c18 });
+const eyeInk = new MeshBasicMaterial({ color: 0x6b4226 });
 const glintMat = new MeshBasicMaterial({ color: 0xffffff });
 const mouthMat = new MeshBasicMaterial({ color: 0x2a241c });
 
@@ -50,31 +48,31 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
   group.add(squash);
   squash.add(body);
 
-  const green = mat(0x67d84a, 0.36);
-  const greenDeep = mat(0x3eae34, 0.42);
-  const bellyMat = mat(0xffe4b0, 0.48);
-  const spikeMat = mat(0xff9728, 0.32);
-  const blushMat = mat(0xff8eaa, 0.52);
-  const tongueMat = mat(0xe85b6c, 0.4);
+  const green = mat(0x8ee06a, 0.9, 0);
+  const greenDeep = mat(0x5cbf4a, 0.92, 0);
+  const bellyMat = mat(0xfff6ea, 0.92, 0);
+  const finMat = mat(0xffb3d0, 0.9, 0);
+  const blushMat = mat(0xff8eaa, 0.9, 0);
+  const tongueMat = mat(0xe85b6c, 0.88, 0);
 
-  const torso = new Mesh(new SphereGeometry(0.46, 28, 22), green);
-  torso.scale.set(1.08, 0.9, 0.9);
-  torso.position.y = 0.58;
-  addOutline(torso, 0.055);
+  const torso = new Mesh(new SphereGeometry(0.4, 28, 22), green);
+  torso.scale.set(1.2, 0.86, 1.05);
+  torso.position.y = 0.5;
+  addOutline(torso, 0.045);
   body.add(torso);
 
-  const tummy = new Mesh(new SphereGeometry(0.3, 20, 16), bellyMat);
-  tummy.scale.set(0.82, 0.95, 0.38);
-  tummy.position.set(0, 0.5, 0.3);
+  const tummy = new Mesh(new SphereGeometry(0.28, 20, 16), bellyMat);
+  tummy.scale.set(0.9, 1.05, 0.42);
+  tummy.position.set(0, 0.46, 0.28);
   body.add(tummy);
 
   const head = new Group();
-  head.position.set(0, 1.12, 0.06);
+  head.position.set(0, 0.98, 0.08);
   body.add(head);
 
-  const skull = new Mesh(new SphereGeometry(0.48, 32, 24), green);
-  skull.scale.set(1.12, 1.02, 1);
-  addOutline(skull, 0.05);
+  const skull = new Mesh(new SphereGeometry(0.56, 32, 24), green);
+  skull.scale.set(1.08, 1, 0.96);
+  addOutline(skull, 0.04);
   head.add(skull);
 
   const shine = new Mesh(new SphereGeometry(0.12, 12, 10), new MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.38 }));
@@ -91,26 +89,26 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
   head.add(look);
   const eyes: Mesh[] = [];
   for (const side of [-1, 1]) {
-    const white = new Mesh(new SphereGeometry(0.125, 18, 14), eyeWhite);
-    white.scale.set(1, 1.12, 0.62);
-    white.position.set(side * 0.18, 0.08, 0.34);
+    const white = new Mesh(new SphereGeometry(0.16, 18, 14), eyeWhite);
+    white.scale.set(1, 1.16, 0.55);
+    white.position.set(side * 0.2, 0.06, 0.4);
     look.add(white);
     eyes.push(white);
 
-    const pupil = new Mesh(new SphereGeometry(0.062, 14, 12), eyeInk);
-    pupil.position.set(side * 0.185, 0.05, 0.42);
+    const pupil = new Mesh(new SphereGeometry(0.078, 14, 12), eyeInk);
+    pupil.position.set(side * 0.21, 0.04, 0.5);
     look.add(pupil);
 
-    const catchLight = new Mesh(new SphereGeometry(0.028, 8, 8), glintMat);
-    catchLight.position.set(side * 0.2 + 0.02, 0.1, 0.46);
+    const catchLight = new Mesh(new SphereGeometry(0.034, 8, 8), glintMat);
+    catchLight.position.set(side * 0.24 + 0.02, 0.1, 0.55);
     look.add(catchLight);
-    const catchSmall = new Mesh(new SphereGeometry(0.012, 8, 8), glintMat);
-    catchSmall.position.set(side * 0.15, 0.02, 0.45);
+    const catchSmall = new Mesh(new SphereGeometry(0.016, 8, 8), glintMat);
+    catchSmall.position.set(side * 0.16, 0.0, 0.54);
     look.add(catchSmall);
 
-    const cheek = new Mesh(new SphereGeometry(0.06, 12, 10), blushMat);
-    cheek.scale.set(1.2, 0.68, 0.4);
-    cheek.position.set(side * 0.3, -0.08, 0.3);
+    const cheek = new Mesh(new SphereGeometry(0.08, 12, 10), blushMat);
+    cheek.scale.set(1.25, 0.62, 0.35);
+    cheek.position.set(side * 0.34, -0.1, 0.36);
     head.add(cheek);
 
     const nostril = new Mesh(new SphereGeometry(0.02, 8, 6), greenDeep);
@@ -141,30 +139,30 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
   frown.add(frownArc);
   head.add(frown);
 
-  const spikeGeo = new ConeGeometry(0.09, 0.22, 8);
-  const spikeSpots: [number, number, number, number][] = [
-    [0, 0.5, -0.02, 1.05],
-    [-0.02, 0.28, -0.28, 0.85],
-    [0, 0.02, -0.36, 0.7],
+  const finGeo = new SphereGeometry(0.11, 12, 10);
+  const finSpots: [number, number, number, number][] = [
+    [0, 0.42, -0.08, 1],
+    [0, 0.22, -0.32, 0.82],
+    [0, 0.02, -0.4, 0.68],
   ];
-  for (const [x, y, z, scale] of spikeSpots) {
-    const horn = new Mesh(spikeGeo, spikeMat);
-    horn.position.set(x, y, z);
-    horn.scale.setScalar(scale);
-    horn.castShadow = true;
-    head.add(horn);
+  for (const [x, y, z, scale] of finSpots) {
+    const fin = new Mesh(finGeo, finMat);
+    fin.scale.set(0.7 * scale, 1.15 * scale, 0.35);
+    fin.position.set(x, y, z);
+    fin.castShadow = true;
+    head.add(fin);
   }
-  const backSpikes: [number, number, number][] = [
-    [0, 0.95, -0.28],
-    [0, 0.72, -0.36],
-    [0, 0.5, -0.34],
+  const backFins: [number, number, number][] = [
+    [0, 0.82, -0.22],
+    [0, 0.62, -0.32],
+    [0, 0.44, -0.3],
   ];
-  for (const [x, y, z] of backSpikes) {
-    const horn = new Mesh(spikeGeo, spikeMat);
-    horn.position.set(x, y, z);
-    horn.scale.setScalar(0.75);
-    horn.castShadow = true;
-    body.add(horn);
+  for (const [x, y, z] of backFins) {
+    const fin = new Mesh(finGeo, finMat);
+    fin.scale.set(0.55, 0.95, 0.28);
+    fin.position.set(x, y, z);
+    fin.castShadow = true;
+    body.add(fin);
   }
 
   const armL = makeArm(green, -1);
@@ -189,11 +187,10 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
     addOutline(part, 0.06);
     tail.add(part);
   }
-  const tailSpike = new Mesh(spikeGeo, spikeMat);
-  tailSpike.position.set(0, 0.12, -0.16);
-  tailSpike.scale.setScalar(0.55);
-  tailSpike.rotation.x = 0.6;
-  tail.add(tailSpike);
+  const tailFin = new Mesh(finGeo, finMat);
+  tailFin.position.set(0, 0.1, -0.2);
+  tailFin.scale.set(0.45, 0.7, 0.22);
+  tail.add(tailFin);
   body.add(tail);
 
   const cape = new Group();
@@ -221,27 +218,29 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
 
 function makeArm(material: ReturnType<typeof mat>, side: number): Group {
   const pivot = new Group();
-  pivot.position.set(side * 0.46, 0.72, 0.1);
-  const arm = new Mesh(new CapsuleGeometry(0.075, 0.16, 4, 8), material);
-  arm.position.y = -0.16;
-  addOutline(arm, 0.08);
+  pivot.position.set(side * 0.42, 0.58, 0.12);
+  const arm = new Mesh(new SphereGeometry(0.1, 12, 10), material);
+  arm.scale.set(0.85, 1.15, 0.85);
+  arm.position.y = -0.12;
+  addOutline(arm, 0.06);
   pivot.add(arm);
-  const hand = new Mesh(new SphereGeometry(0.085, 12, 10), material);
-  hand.position.y = -0.32;
-  addOutline(hand, 0.06);
+  const hand = new Mesh(new SphereGeometry(0.09, 12, 10), material);
+  hand.position.y = -0.24;
+  addOutline(hand, 0.05);
   pivot.add(hand);
   return pivot;
 }
 
 function makeLeg(material: ReturnType<typeof mat>, deep: ReturnType<typeof mat>, side: number): Group {
   const pivot = new Group();
-  pivot.position.set(side * 0.16, 0.28, 0.06);
-  const leg = new Mesh(new CapsuleGeometry(0.075, 0.06, 3, 8), deep);
-  leg.position.y = -0.08;
+  pivot.position.set(side * 0.16, 0.22, 0.08);
+  const leg = new Mesh(new SphereGeometry(0.09, 12, 10), deep);
+  leg.scale.set(1, 0.85, 1);
+  leg.position.y = -0.04;
   pivot.add(leg);
-  const foot = new Mesh(new SphereGeometry(0.1, 14, 12), material);
-  foot.scale.set(1.15, 0.5, 1.45);
-  foot.position.set(side * 0.02, -0.18, 0.08);
+  const foot = new Mesh(new SphereGeometry(0.11, 14, 12), material);
+  foot.scale.set(1.2, 0.48, 1.35);
+  foot.position.set(side * 0.02, -0.14, 0.08);
   addOutline(foot, 0.05);
   pivot.add(foot);
   for (const x of [-0.05, 0.02, 0.07]) {
@@ -312,8 +311,15 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
     rig.armL.rotation.set(0, 0, -0.65 + Math.sin(time * 2) * 0.1);
     rig.armR.rotation.set(-0.1, 0, 0.95 + Math.sin(time * 2.5) * 0.16);
   } else {
-    rig.armL.rotation.set(0, 0, -0.32 + Math.sin(time * 2) * 0.08);
-    rig.armR.rotation.set(-0.18, 0, 1.12 + Math.sin(time * 4.4) * 0.38);
+    const cycle = time % 5.2;
+    const waving = cycle < 0.85;
+    rig.armL.rotation.set(0.05, 0, -0.4 + Math.sin(time * 2) * 0.08);
+    if (waving) {
+      const flap = Math.sin((cycle / 0.85) * Math.PI * 3);
+      rig.armR.rotation.set(-0.55, 0, 0.15 + flap * 1.05);
+    } else {
+      rig.armR.rotation.set(-0.12, 0, 0.72 + Math.sin(time * 3) * 0.16);
+    }
   }
 
   if (anim.hop < 1) {
