@@ -11,7 +11,6 @@ import {
 } from '../game/cards';
 import {
   Copy,
-  chipNote,
   clock,
   collectedCount,
   comboText,
@@ -55,34 +54,36 @@ export function mountApp(session: GameSession, stage: Stage): void {
   buildTrack(ui.track);
   buildAlbum(ui.album);
 
-  ui.start.addEventListener('click', () => session.startRound());
-  ui.openCards.addEventListener('click', () => session.openCards());
-  ui.cardPocket.addEventListener('click', () => session.openCards());
-  ui.resultsCards.addEventListener('click', () => session.openCards());
-  ui.exit.addEventListener('click', () => session.requestExit());
-  ui.resultsHome.addEventListener('click', () => session.goHome());
-  ui.again.addEventListener('click', () => session.playAgain());
-  ui.closeCards.addEventListener('click', () => session.closeCards());
-  ui.dismissChest.addEventListener('click', () => {
+  bindTap(ui.start, () => session.startRound());
+  bindTap(ui.openCards, () => session.openCards());
+  bindTap(ui.cardPocket, () => session.openCards());
+  bindTap(ui.resultsCards, () => session.openCards());
+  bindTap(ui.exit, () => session.requestExit());
+  bindTap(ui.resultsHome, () => session.goHome());
+  bindTap(ui.again, () => session.playAgain());
+  bindTap(ui.closeCards, () => session.closeCards());
+  bindTap(ui.dismissChest, () => {
     if (!ui.revealCard.hidden) flyClone(ui.revealCard, ui.cardPocket);
     session.dismissChest();
   });
-  ui.keepPlaying.addEventListener('click', () => session.cancelExit());
-  ui.confirmExit.addEventListener('click', () => session.goHome());
-  ui.share.addEventListener('click', () => void share(session));
-  ui.closeInspect.addEventListener('click', () => {
+  bindTap(ui.keepPlaying, () => session.cancelExit());
+  bindTap(ui.confirmExit, () => session.goHome());
+  bindTap(ui.share, () => void share(session));
+  bindTap(ui.closeInspect, () => {
     ui.inspect.hidden = true;
     ui.inspectTilt?.();
     ui.inspectTilt = undefined;
   });
-  ui.cards.addEventListener('click', (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
-    if (!button) return;
-    openInspect(ui, button.dataset.card ?? '', session);
+  bindTap(ui.chestCards, () => session.openCards());
+  bindTap(ui.pet, () => {
+    stage.petHome();
+    session.cheerPet();
+    floatHearts(ui.pet);
   });
+  bindCardTap(ui.cards, (id) => openInspect(ui, id, session));
   ui.album.addEventListener('pointermove', (event) => tiltCard(event));
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mute]')) {
-    button.addEventListener('click', () => session.toggleMute());
+    bindTap(button, () => session.toggleMute());
   }
 
   window.addEventListener('keydown', (event) => {
@@ -156,17 +157,30 @@ function template(): string {
     <section id="home" class="screen screen-home">
       <header class="topbar">
         <div class="pill pill-star" id="stat-correct">${starSvg()}<span id="correct-count">0</span></div>
-        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span>${Copy.cardBook}</span><span class="pill-count" id="card-count">0</span></button>
+        <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/27</span></button>
         <div class="spacer"></div>
         <div class="pill pill-flame" id="stat-streak">${flameSvg()}<span id="streak-count">0</span></div>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </header>
-      <div class="grow"></div>
-      <footer class="home-dock">
-        <div class="diff-row" id="diff-row"></div>
-        <button class="start" id="start" type="button"><i>✦</i> ${Copy.start} <i>✦</i></button>
-        <p class="home-note" id="home-note"></p>
-      </footer>
+      <div class="home-stage">
+        <div id="home-hero" class="home-hero">
+          <button id="pet-dino" type="button" aria-label="摸摸小恐龙"></button>
+        </div>
+        <div class="home-path">
+          <div class="path-sky" aria-hidden="true">
+            <div class="rainbow"></div>
+            <i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i>
+            <i class="twinkle t1"></i><i class="twinkle t2"></i><i class="twinkle t3"></i><i class="twinkle t4"></i>
+          </div>
+          <div class="path-board" id="diff-row">
+            <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M22 82 C 48 84, 62 68, 78 60 S 48 36, 30 28 S 62 8, 80 14" />
+            </svg>
+          </div>
+          <button class="start" id="start" type="button">${Copy.start}</button>
+          <p class="home-note" id="home-note"></p>
+        </div>
+      </div>
     </section>
     <section id="quiz" class="screen screen-quiz" hidden>
       <div class="answer-panel">
@@ -226,18 +240,30 @@ function template(): string {
     </section>
     <div id="chest" class="modal" hidden role="dialog" aria-modal="true">
       <div class="modal-card chest-modal">
-        <div class="toy-chest" aria-hidden="true"><div class="lid"></div><div class="box"></div><div class="glow"></div></div>
-        <div id="reveal-card" class="reveal-card"></div>
-        <h2 id="chest-title">${Copy.chestTitle}</h2>
-        <p id="chest-copy"></p>
-        <p id="chest-meta"></p>
-        <div class="modal-actions"><button class="btn btn-green" id="dismiss-chest" type="button">${Copy.collectCard}</button></div>
+        <div class="chest-rays" aria-hidden="true"></div>
+        <div class="chest-pop" aria-hidden="true">${confettiBits()}</div>
+        <h2 id="chest-title">${Copy.newCard}</h2>
+        <div class="chest-stage">
+          <div class="chest-dino" aria-hidden="true">${cheerDinoSvg()}</div>
+          <div id="reveal-card" class="reveal-card"></div>
+          <div class="chest-bubble">
+            <p id="chest-copy"></p>
+            <p id="chest-meta"></p>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-green" id="dismiss-chest" type="button">${Copy.takeCard}</button>
+          <button class="btn btn-blue" id="chest-cards" type="button">${Copy.viewCards}</button>
+        </div>
       </div>
     </div>
     <div id="inspect" class="modal" hidden role="dialog" aria-modal="true">
       <div class="inspect-wrap">
         <div id="inspect-card" class="inspect-card"></div>
-        <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
+        <div class="inspect-side">
+          <p id="inspect-say"></p>
+          <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
+        </div>
       </div>
     </div>
     <div id="exit-modal" class="modal" hidden role="dialog" aria-modal="true">
@@ -266,6 +292,7 @@ interface Ui {
   cardPocket: HTMLButtonElement;
   diffRow: HTMLElement;
   start: HTMLButtonElement;
+  pet: HTMLButtonElement;
   homeNote: HTMLElement;
   exit: HTMLButtonElement;
   stageLabel: HTMLElement;
@@ -299,8 +326,10 @@ interface Ui {
   chestCopy: HTMLElement;
   chestMeta: HTMLElement;
   dismissChest: HTMLButtonElement;
+  chestCards: HTMLButtonElement;
   inspect: HTMLElement;
   inspectCard: HTMLElement;
+  inspectSay: HTMLElement;
   closeInspect: HTMLButtonElement;
   inspectTilt?: () => void;
   exitModal: HTMLElement;
@@ -327,6 +356,7 @@ function bind(root: ParentNode): Ui {
     cardPocket: q('card-pocket'),
     diffRow: q('diff-row'),
     start: q('start'),
+    pet: q('pet-dino'),
     homeNote: q('home-note'),
     exit: q('exit'),
     stageLabel: q('stage-label'),
@@ -360,8 +390,10 @@ function bind(root: ParentNode): Ui {
     chestCopy: q('chest-copy'),
     chestMeta: q('chest-meta'),
     dismissChest: q('dismiss-chest'),
+    chestCards: q('chest-cards'),
     inspect: q('inspect'),
     inspectCard: q('inspect-card'),
+    inspectSay: q('inspect-say'),
     closeInspect: q('close-inspect'),
     exitModal: q('exit-modal'),
     keepPlaying: q('keep-playing'),
@@ -376,7 +408,15 @@ function buildDifficulty(row: HTMLElement, session: GameSession): void {
     button.type = 'button';
     button.className = 'diff';
     button.dataset.difficulty = String(difficulty);
-    button.addEventListener('click', () => session.setDifficulty(difficulty));
+    bindTap(button, () => {
+      if (!difficultyOpen(session, difficulty)) {
+        button.classList.remove('is-shaking');
+        void button.offsetWidth;
+        button.classList.add('is-shaking');
+        return;
+      }
+      session.setDifficulty(difficulty);
+    });
     row.append(button);
   }
 }
@@ -410,6 +450,81 @@ function buildKeypad(pad: HTMLElement, session: GameSession): void {
   }
 }
 
+/** One finger-up inside the control runs the action. Pointer capture keeps the tap
+ * if the button shifts, and the extra click from mouse/touch is ignored. */
+function bindTap(element: HTMLElement, action: () => void): void {
+  let armed = false;
+  let originX = 0;
+  let originY = 0;
+  element.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    armed = true;
+    originX = event.clientX;
+    originY = event.clientY;
+    element.classList.add('is-pressed');
+    try {
+      element.setPointerCapture(event.pointerId);
+    } catch {
+      // The control can be detached before capture is available.
+    }
+    event.preventDefault();
+  });
+  const finish = (event: PointerEvent, fire: boolean) => {
+    if (!armed) return;
+    armed = false;
+    element.classList.remove('is-pressed');
+    if (!fire) return;
+    const rect = element.getBoundingClientRect();
+    const near =
+      event.clientX >= rect.left - 16 &&
+      event.clientX <= rect.right + 16 &&
+      event.clientY >= rect.top - 16 &&
+      event.clientY <= rect.bottom + 16;
+    const slipped = Math.hypot(event.clientX - originX, event.clientY - originY) > 28;
+    if (near && !slipped) action();
+  };
+  element.addEventListener('pointerup', (event) => finish(event, true));
+  element.addEventListener('pointercancel', (event) => finish(event, false));
+  element.addEventListener('click', (event) => {
+    if (event.detail !== 0) return;
+    action();
+  });
+}
+
+function bindCardTap(host: HTMLElement, action: (id: string) => void): void {
+  let armed: { id: number; x: number; y: number; moved: boolean } | null = null;
+  host.addEventListener('pointerdown', (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    armed = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    button.classList.add('is-pressed');
+  });
+  host.addEventListener('pointermove', (event) => {
+    if (!armed || armed.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - armed.x, event.clientY - armed.y) > 12) armed.moved = true;
+  });
+  const clearPressed = () => host.querySelectorAll('.is-pressed').forEach((node) => node.classList.remove('is-pressed'));
+  host.addEventListener('pointerup', (event) => {
+    const gesture = armed;
+    armed = null;
+    clearPressed();
+    if (!gesture || gesture.moved || gesture.id !== event.pointerId) return;
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    action(button.dataset.card ?? '');
+  });
+  host.addEventListener('pointercancel', () => {
+    armed = null;
+    clearPressed();
+  });
+  host.addEventListener('click', (event) => {
+    if (event.detail !== 0) return;
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    action(button.dataset.card ?? '');
+  });
+}
+
 function buzz(): void {
   const vibrate = navigator.vibrate?.bind(navigator);
   if (!vibrate) return;
@@ -422,24 +537,29 @@ function buzz(): void {
 
 function placeQuizStage(session: GameSession): void {
   const canvas = document.querySelector<HTMLCanvasElement>('#stage');
-  const island = document.querySelector<HTMLElement>('#quiz-island');
   if (!canvas) return;
-  if (session.screen !== 'quiz' || !island) {
-    canvas.style.left = '0';
-    canvas.style.top = '0';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.zIndex = '0';
-    canvas.style.borderRadius = '0';
-    return;
-  }
-  const rect = island.getBoundingClientRect();
-  canvas.style.left = `${rect.left}px`;
-  canvas.style.top = `${rect.top}px`;
-  canvas.style.width = `${Math.max(1, rect.width)}px`;
-  canvas.style.height = `${Math.max(1, rect.height)}px`;
-  canvas.style.zIndex = '2';
-  canvas.style.borderRadius = '10px';
+  const pin = (host: HTMLElement | null, radius: string, zIndex: string) => {
+    if (!host) return false;
+    const rect = host.getBoundingClientRect();
+    if (rect.width < 2 || rect.height < 2) return false;
+    canvas.style.left = `${rect.left}px`;
+    canvas.style.top = `${rect.top}px`;
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+    canvas.style.zIndex = zIndex;
+    canvas.style.borderRadius = radius;
+    canvas.style.pointerEvents = 'none';
+    return true;
+  };
+  if (session.screen === 'quiz' && pin(document.querySelector('#quiz-island'), '10px', '2')) return;
+  if (session.screen === 'home' && pin(document.querySelector('#home-hero'), '28px', '0')) return;
+  canvas.style.left = '0';
+  canvas.style.top = '0';
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.zIndex = '0';
+  canvas.style.borderRadius = '0';
+  canvas.style.pointerEvents = 'none';
 }
 
 function buildTrack(track: HTMLElement): void {
@@ -480,10 +600,11 @@ function sync(ui: Ui, session: GameSession): void {
   show(ui.cards, session.screen === 'cards');
 
   const catalogOwned = session.save.cards.filter((card) => !card.id.startsWith('legacy:')).length;
-  ui.correctCount.textContent = String(session.save.cumulativeFirstTry);
-  ui.cardCount.textContent = String(catalogOwned);
+  const starTotal = session.save.rounds.reduce((sum, round) => sum + round.stars, 0);
+  ui.correctCount.textContent = String(starTotal);
+  ui.cardCount.textContent = `${catalogOwned}/${CARDS.length}`;
   ui.streakCount.textContent = String(session.save.bestStreak);
-  ui.correctCount.parentElement?.setAttribute('aria-label', `累计一次答对 ${session.save.cumulativeFirstTry} 题`);
+  ui.correctCount.parentElement?.setAttribute('aria-label', `星星 ${starTotal}`);
   ui.streakCount.parentElement?.setAttribute('aria-label', `最高连对 ${session.save.bestStreak} 题`);
   ui.homeNote.textContent = `${detail(session.difficulty)} · ${roundsPlayed(session.roundsPlayed)}${lastRoundNote(session)}`;
   ui.openCards.setAttribute('aria-label', `${Copy.cardBook}，${collectedCount(catalogOwned, CARDS.length)}`);
@@ -491,17 +612,36 @@ function sync(ui: Ui, session: GameSession): void {
   for (const button of ui.diffRow.querySelectorAll<HTMLButtonElement>('.diff')) {
     const difficulty = Number(button.dataset.difficulty) as Difficulty;
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
-    const selected = session.difficulty === difficulty;
+    const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
+    const open = difficultyOpen(session, difficulty);
+    const selected = open && session.difficulty === difficulty;
     button.classList.toggle('selected', selected);
-    button.innerHTML = `<strong>${shortTitle(difficulty)}</strong><small>${chipNote(difficulty)}</small><div class="stars">${'★'.repeat(best)}${'☆'.repeat(3 - best)}</div>`;
-    button.setAttribute('aria-label', `${shortTitle(difficulty)}，${detail(difficulty)}，最佳 ${best} 颗星`);
+    button.classList.toggle('locked', !open);
+    const stars = cleared ? `<span class="node-stars">${'★'.repeat(best)}${'☆'.repeat(Math.max(0, 3 - best))}</span>` : '';
+    const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
+    const markup = `<span class="node-arrow" aria-hidden="true">▼</span><span class="node-face">${shortTitle(difficulty)}</span>${stars}${lock}`;
+    const view = `${markup}|${selected}|${open}`;
+    if (button.dataset.view !== view) {
+      button.dataset.view = view;
+      button.innerHTML = markup;
+    }
+    button.setAttribute(
+      'aria-label',
+      open
+        ? `${shortTitle(difficulty)}，${detail(difficulty)}，最佳 ${best} 颗星`
+        : `${shortTitle(difficulty)}，${detail(difficulty)}，未解锁`,
+    );
     if (selected) button.setAttribute('aria-selected', 'true');
     else button.removeAttribute('aria-selected');
   }
 
   for (const button of ui.mutes) {
-    button.innerHTML = speakerSvg(session.isMuted);
-    button.setAttribute('aria-label', session.isMuted ? Copy.unmute : Copy.mute);
+    const label = session.isMuted ? Copy.unmute : Copy.mute;
+    if (button.dataset.view !== label) {
+      button.dataset.view = label;
+      button.innerHTML = speakerSvg(session.isMuted);
+    }
+    button.setAttribute('aria-label', label);
   }
 
   const problem = session.chest ? session.problems[session.index - 1] : session.currentProblem;
@@ -550,7 +690,7 @@ function sync(ui: Ui, session: GameSession): void {
     const id = button.dataset.card ?? '';
     const def = resolveCard(id);
     if (!def) continue;
-    paintOwned(button, def, owned.get(id));
+    paintOwned(button, def, owned.get(id), session);
   }
   const legacy = session.save.cards.filter((card) => card.id.startsWith('legacy:'));
   ui.legacy.hidden = legacy.length === 0;
@@ -576,12 +716,15 @@ function sync(ui: Ui, session: GameSession): void {
   }
 }
 
-function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard | undefined): void {
+function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard | undefined, session: GameSession): void {
   button.classList.toggle('locked', !earned);
-  button.setAttribute('aria-label', earned ? `${def.name}，${earned.achievement}` : `${def.name}，${Copy.lockedCard}，${def.condition}`);
+  const hint = unlockHint(def, session);
+  button.setAttribute('aria-label', earned ? `${def.name}，${def.line}` : `${def.name}，${Copy.lockedCard}，${hint}`);
+  const name = button.querySelector('.tc-name');
   const detail = button.querySelector('.tc-detail');
   const foot = button.querySelector('.tc-foot');
-  if (detail) detail.textContent = earned ? earned.achievement : def.condition;
+  if (name) name.textContent = earned ? def.name : '神秘卡片';
+  if (detail) detail.textContent = earned ? earned.achievement : hint;
   if (foot) {
     foot.textContent = earned
       ? `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}`
@@ -595,25 +738,26 @@ function paintChest(ui: Ui, session: GameSession): void {
   const grant = chest.cards[chest.cursor];
   const def = grant ? resolveCard(grant.id) : undefined;
   const earned = grant ? session.earnedThisRound.find((card) => card.id === grant.id) : undefined;
+  const showing = Boolean(grant && def && earned);
+  ui.revealCard.hidden = !showing;
+  ui.chestCards.hidden = !showing;
   if (grant && def && earned) {
-    ui.revealCard.hidden = false;
     ui.revealCard.className = `reveal-card rarity-${def.rarity}`;
     ui.revealCard.innerHTML = cardShell(def, earned);
-    ui.chestTitle.textContent = def.name;
-    ui.chestCopy.textContent = earned.achievement;
-    ui.chestMeta.textContent = `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount)}`;
+    ui.chestTitle.textContent = Copy.newCard;
+    ui.chestCopy.textContent = def.line;
+    ui.chestMeta.textContent = `${earned.achievement} · ${formatCardDate(earned.earnedAt)}`;
     if (chest.banked > 0 && chest.cursor === chest.cards.length - 1) {
       ui.chestMeta.textContent += ` · 另外 ${chest.banked} 张已放进卡片本`;
     }
   } else {
-    ui.revealCard.hidden = true;
     ui.revealCard.innerHTML = '';
     ui.chestTitle.textContent = Copy.chestEmptyTitle;
     ui.chestCopy.textContent = Copy.chestEmptyDetail;
     ui.chestMeta.textContent = '';
   }
   const last = !grant || chest.cursor >= chest.cards.length - 1;
-  ui.dismissChest.textContent = !last ? Copy.collectCard : chest.isFinal ? Copy.seeScore : Copy.continuePlaying;
+  ui.dismissChest.textContent = last && chest.isFinal ? Copy.seeScore : Copy.takeCard;
 }
 
 function cardShell(def: CardDef, earned: EarnedCard): string {
@@ -630,10 +774,12 @@ function openInspect(ui: Ui, id: string, session: GameSession): void {
   const def = resolveCard(id);
   if (!def) return;
   const earned = session.save.cards.find((card) => card.id === id);
+  const hint = unlockHint(def, session);
   ui.inspectCard.className = `inspect-card rarity-${def.rarity}${earned ? '' : ' locked'}`;
+  ui.inspectSay.textContent = earned ? def.line : hint;
   ui.inspectCard.innerHTML = earned
     ? cardShell(def, earned)
-    : `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${def.condition}</em><small class="tc-foot">还没收集到</small></div>`;
+    : `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">神秘卡片</strong><em class="tc-detail">${hint}</em><small class="tc-foot">还没收集到</small></div>`;
   ui.inspect.hidden = false;
   ui.inspectTilt?.();
   ui.inspectTilt = bindInspectTilt(ui.inspectCard);
@@ -765,6 +911,7 @@ function flyClone(source: HTMLElement, target: HTMLElement): void {
   const to = target.getBoundingClientRect();
   if (from.width === 0 || to.width === 0) return;
   const flyer = source.cloneNode(true) as HTMLElement;
+  flyer.removeAttribute('id');
   flyer.classList.add('flyer');
   flyer.style.left = `${from.left}px`;
   flyer.style.top = `${from.top}px`;
@@ -799,6 +946,106 @@ function lastRoundNote(session: GameSession): string {
   const last = session.save.rounds[0];
   if (!last) return '';
   return ` · ${roundSummary(last.firstTryCorrect, last.total, last.stars)}`;
+}
+
+function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
+  if (difficulty <= 1) return true;
+  const previous = (difficulty - 1) as Difficulty;
+  return (session.bestFor(previous)?.roundsPlayed ?? 0) > 0;
+}
+
+function unlockHint(def: CardDef, session: GameSession): string {
+  const save = session.save;
+  const rounds = save.rounds.length;
+  const streak = save.bestStreak;
+  const correct = save.cumulativeFirstTry;
+  const played = (id: Difficulty) => save.bests[id]?.roundsPlayed ?? 0;
+  const stars = (id: Difficulty) => save.bests[id]?.bestStars ?? 0;
+  const pair = (label: string, have: number, need: number) => `${label} ${Math.min(have, need)}/${need}`;
+  switch (def.id) {
+    case 'sprout':
+      return pair('完成1关解锁', rounds, 1);
+    case 'streak-5':
+      return pair('连对5题解锁', streak, 5);
+    case 'streak-10':
+      return pair('连对10题解锁', streak, 10);
+    case 'streak-15':
+      return pair('连对15题解锁', streak, 15);
+    case 'one-breath':
+    case 'cheer-up':
+      return pair('完成1轮解锁', rounds, 1);
+    case 'easy-clear':
+      return pair('轻松通关解锁', played(1), 1);
+    case 'carry-clear':
+      return pair('进位通关解锁', played(2), 1);
+    case 'advanced-clear':
+      return pair('进阶通关解锁', played(3), 1);
+    case 'challenge-clear':
+    case 'night-sky':
+      return pair('挑战通关解锁', played(4), 1);
+    case 'challenge-3':
+      return `挑战3星解锁 ${Math.min(stars(4), 3)}/3`;
+    case 'melon-sweet':
+      return `轻松3星解锁 ${Math.min(stars(1), 3)}/3`;
+    case 'correct-50':
+      return pair('答对50题解锁', correct, 50);
+    case 'correct-100':
+      return pair('答对100题解锁', correct, 100);
+    case 'correct-300':
+      return pair('答对300题解锁', correct, 300);
+    case 'panda-3':
+      return pair('完成3轮解锁', rounds, 3);
+    case 'panda-5':
+      return pair('完成5轮解锁', rounds, 5);
+    case 'guardian-10':
+      return pair('完成10轮解锁', rounds, 10);
+    case 'all-diff':
+      return `四个难度解锁 ${[1, 2, 3, 4].filter((id) => played(id as Difficulty) > 0).length}/4`;
+    default:
+      return def.condition;
+  }
+}
+
+function floatHearts(anchor: HTMLElement): void {
+  const rect = anchor.getBoundingClientRect();
+  for (let i = 0; i < 6; i += 1) {
+    const bit = document.createElement('i');
+    bit.className = 'heart-pop';
+    bit.textContent = i % 2 === 0 ? '♥' : '★';
+    bit.style.left = `${rect.left + rect.width * (0.32 + Math.random() * 0.36)}px`;
+    bit.style.top = `${rect.top + rect.height * 0.42}px`;
+    bit.style.animationDelay = `${i * 0.04}s`;
+    document.body.append(bit);
+    window.setTimeout(() => bit.remove(), 900);
+  }
+}
+
+function confettiBits(): string {
+  return Array.from({ length: 14 }, (_, index) => `<i style="--i:${index}"></i>`).join('');
+}
+
+function cheerDinoSvg(): string {
+  return `<svg viewBox="0 0 120 150" aria-hidden="true">
+    <ellipse cx="60" cy="132" rx="36" ry="10" fill="#7dce4e"/>
+    <ellipse cx="34" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
+    <ellipse cx="86" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
+    <ellipse cx="60" cy="108" rx="28" ry="22" fill="#8ee06a"/>
+    <ellipse cx="60" cy="112" rx="16" ry="12" fill="#fff6ea"/>
+    <ellipse cx="40" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
+    <ellipse cx="80" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
+    <ellipse cx="28" cy="100" rx="8" ry="7" fill="#8ee06a"/>
+    <ellipse cx="96" cy="86" rx="8" ry="7" fill="#8ee06a" transform="rotate(-30 96 86)"/>
+    <ellipse cx="60" cy="62" rx="32" ry="30" fill="#8ee06a"/>
+    <ellipse cx="46" cy="60" rx="10" ry="12" fill="#fff"/>
+    <ellipse cx="74" cy="60" rx="10" ry="12" fill="#fff"/>
+    <ellipse cx="47" cy="62" rx="5" ry="6" fill="#6b4226"/>
+    <ellipse cx="75" cy="62" rx="5" ry="6" fill="#6b4226"/>
+    <circle cx="50" cy="58" r="2.2" fill="#fff"/>
+    <circle cx="78" cy="58" r="2.2" fill="#fff"/>
+    <ellipse cx="34" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
+    <ellipse cx="86" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
+    <path d="M50 76 Q60 86 70 76" fill="none" stroke="#5a3a28" stroke-width="2.4" stroke-linecap="round"/>
+  </svg>`;
 }
 
 function starSvg(): string {

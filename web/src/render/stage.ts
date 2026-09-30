@@ -34,7 +34,6 @@ import {
   createCloud,
   createFlower,
   createHouse,
-  createLabeledStone,
   createMushroom,
   createPalm,
   createPanda,
@@ -277,6 +276,18 @@ export class Stage {
     if (this.mode === 'results') this.applySky();
   }
 
+  petHome(): void {
+    this.homeAnim.mood = 'happy';
+    this.homeAnim.moodUntil = performance.now() / 1000 + 0.9;
+    this.homeAnim.hop = 0;
+    const origin = this.homeAnim.rig.group.position.clone();
+    origin.y += 1.15;
+    const colors = [0xff8eb8, 0xffe14a, 0xffffff, 0x7ddea0, 0xffb3d0];
+    for (let i = 0; i < 14; i += 1) {
+      this.launchSpark(origin, colors[i % colors.length]!, 0.55, 2.2, 1.7);
+    }
+  }
+
   burst(level: 0 | 1 | 2 = 0): void {
     const origin = this.quizAnim.rig.group.position.clone();
     origin.y += 0.95;
@@ -300,7 +311,7 @@ export class Stage {
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.fov = this.mode === 'quiz' ? 36 : this.mode === 'results' ? 30 : 32;
+    this.camera.fov = this.mode === 'quiz' ? 36 : this.mode === 'results' ? 30 : 30;
     this.camera.updateProjectionMatrix();
   }
 
@@ -320,8 +331,10 @@ export class Stage {
     updateDino(this.homeAnim, time, dt);
     updateDino(this.quizAnim, time, dt);
     updateDino(this.resultsAnim, time, dt);
-    this.homeAnim.rig.group.position.y = this.homeBaseY + Math.sin(time * 2.1) * 0.035;
-    this.homeAnim.rig.group.rotation.y = 0.25 + Math.sin(time * 0.7) * 0.08;
+    if (this.homeAnim.hop < 1) this.homeAnim.hop = Math.min(1, this.homeAnim.hop + dt / 0.48);
+    const hopLift = this.homeAnim.hop < 1 ? Math.sin(this.homeAnim.hop * Math.PI) * 0.55 : 0;
+    this.homeAnim.rig.group.position.y = this.homeBaseY + Math.sin(time * 2.1) * 0.035 + hopLift;
+    this.homeAnim.rig.group.rotation.y = 0.08 + Math.sin(time * 0.7) * 0.06;
 
     let arc = 0;
     if (this.hop.t < 1) {
@@ -400,9 +413,9 @@ export class Stage {
       this.camera.lookAt(0.02, 0.62, 0.02);
       return;
     }
-    const sway = Math.sin(time * 0.28) * 0.18;
-    this.camera.position.set(0.28 + sway, 2.55, 5.15);
-    this.camera.lookAt(0.02, 0.28, 0.1);
+    const sway = Math.sin(time * 0.28) * 0.04;
+    this.camera.position.set(0.08 + sway, 1.42, 3.05);
+    this.camera.lookAt(0.02, 0.78, 0.15);
   }
 
   private applySky(): void {
@@ -466,30 +479,17 @@ export class Stage {
     hill.scale.set(1.15, 0.28, 0.95);
     hill.position.set(-0.15, 0.28, -0.25);
     this.home.add(hill);
-    this.addTufts(this.home, 0.3, 2.05, 28);
-
-    const spots: { label: string; kind: 'gold' | 'stone'; x: number; z: number }[] = [
-      { label: '★', kind: 'gold', x: -1.05, z: 0.42 },
-      { label: '2', kind: 'gold', x: -0.42, z: -0.08 },
-      { label: '3', kind: 'stone', x: 0.22, z: 0.55 },
-      { label: '4', kind: 'stone', x: 0.72, z: 0.02 },
-      { label: '5', kind: 'stone', x: 0.28, z: -0.62 },
-      { label: '6', kind: 'stone', x: 1.02, z: -0.95 },
-    ];
-    for (const spot of spots) {
-      const stone = createLabeledStone(spot.label, spot.kind);
-      stone.position.set(spot.x, ground + 0.02, spot.z);
-      this.home.add(stone);
-    }
+    this.addTufts(this.home, 0.3, 2.05, 18);
 
     const dino = createDino();
-    dino.rig.group.position.set(0.08, ground, 0.95);
-    dino.rig.group.scale.setScalar(1.02);
+    dino.rig.group.position.set(0.02, ground, 0.42);
+    dino.rig.group.scale.setScalar(1.18);
     dino.rig.group.add(createShadow());
     this.home.add(dino.rig.group);
 
     const chest = createChest();
-    chest.group.position.set(1.35, ground - 0.02, 0.42);
+    chest.group.position.set(0.95, ground - 0.02, 0.15);
+    chest.group.scale.setScalar(0.82);
     this.home.add(chest.group);
 
     const house = createHouse();
@@ -513,9 +513,9 @@ export class Stage {
     this.home.add(tree);
 
     for (const [x, z, scale] of [
-      [-1.25, 0.7, 1],
-      [-0.7, -0.95, 0.8],
-      [1.15, 0.85, 0.7],
+      [-0.82, 0.55, 0.85],
+      [0.72, 0.72, 0.62],
+      [-0.55, -0.85, 0.7],
     ] as const) {
       const mushroom = createMushroom(scale);
       mushroom.position.set(x, ground - 0.02, z);

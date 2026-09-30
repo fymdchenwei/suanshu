@@ -37,8 +37,10 @@ describe('card awards', () => {
     for (const card of CARDS) {
       expect(card.condition.length).toBeGreaterThan(0);
       expect(card.name.length).toBeGreaterThan(0);
+      expect(card.line.length).toBeGreaterThan(4);
       expect(resolveCard(card.id)?.id).toBe(card.id);
     }
+    expect(new Set(CARDS.map((card) => card.line)).size).toBe(CARDS.length);
   });
 
   it('records a perfect stage with the streak cards', () => {

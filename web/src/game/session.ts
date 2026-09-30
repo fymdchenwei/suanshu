@@ -321,6 +321,10 @@ export class GameSession {
     this.emit();
   }
 
+  cheerPet(): void {
+    this.audio.playHop();
+  }
+
   toggleMute(): void {
     this.isMuted = !this.isMuted;
     this.audio.muted = this.isMuted;
