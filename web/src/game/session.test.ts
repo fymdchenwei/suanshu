@@ -6,6 +6,17 @@ import { GameSession } from './session';
 import { MemoryStore } from './storage';
 
 describe('GameSession', () => {
+  it('shakes an empty confirm without judging the problem', () => {
+    const session = makeSession();
+    session.startRound(1n);
+    session.submit();
+    expect(session.index).toBe(0);
+    expect(session.input).toBe('');
+    expect(session.emptySubmitToken).toBe(1);
+    expect(session.wrongToken).toBe(0);
+    expect(session.encouragement).toBeNull();
+  });
+
   it('lets a wrong answer retry the same problem without a penalty', () => {
     const session = makeSession();
     session.startRound(1n);

@@ -29,7 +29,7 @@ export const Copy = {
   correctAfterRetry: '这次对啦，前进吧！',
   wrongHint: '再试一次～',
   chestTitle: '宝箱打开啦',
-  delete: '删除',
+  delete: '退格',
   submit: '确定',
   rotateTitle: '请把手机转成横屏',
   back: '返回',

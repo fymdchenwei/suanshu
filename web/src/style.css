@@ -40,9 +40,10 @@ button {
   height: 100%;
   display: block;
   z-index: 0;
+  pointer-events: none;
 }
 
-body[data-screen='quiz'] #stage { height: 44%; }
+body[data-screen='quiz'] { background: #d7f2ff; }
 
 #app {
   position: fixed;
@@ -71,10 +72,15 @@ body[data-screen='quiz'] #stage { height: 44%; }
 
 .screen-quiz {
   display: grid;
-  grid-template-rows: 44% minmax(0, 1fr);
+  grid-template-columns: minmax(132px, 20%) minmax(0, 1fr);
+  column-gap: 10px;
+  height: 100%;
+  min-height: 0;
 }
 
-.topbar, .home-dock, .quiz-card, .quiz-top, .results-actions, .award-card, .sheet, .modal-card, .icon-btn, .mute, .pill, .start, .diff, .key, .btn, .album, .tc, .inspect-wrap {
+.screen.screen-quiz:not([hidden]) { animation: none; }
+
+.topbar, .home-dock, .quiz-rail, .answer-panel, .keypad, .results-actions, .award-card, .sheet, .modal-card, .icon-btn, .mute, .pill, .start, .diff, .key, .btn, .album, .tc, .inspect-wrap {
   pointer-events: auto;
 }
 
@@ -186,82 +192,112 @@ body[data-screen='quiz'] #stage { height: 44%; }
   pointer-events: none;
 }
 
-.quiz-top {
-  position: relative;
+.quiz-rail {
   min-height: 0;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 2px 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 10px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255, 250, 244, 0.2), #fff6ea 38%);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.7);
 }
 
-.quiz-top .mute,
-.quiz-top .icon-btn {
-  width: 36px;
-  height: 36px;
-}
-
-.quiz-top .icon-btn.wide { width: auto; height: 36px; font-size: 14px; }
-
-.progress-stack { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
-
-.progress-pill {
-  background: rgba(255, 248, 240, 0.96);
-  border-radius: 999px;
-  min-width: 132px;
-  text-align: center;
-  padding: 3px 16px 4px;
-  box-shadow: inset 0 2px 0 #fff, 0 4px 0 rgba(80, 50, 20, 0.08);
-}
-
-.progress-pill span { display: block; font-size: 12px; font-weight: 800; opacity: 0.7; }
-.progress-pill strong { font-size: 20px; }
-
-.track {
+.rail-tools {
+  width: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.rail-tools .mute,
+.rail-tools .icon-btn {
+  width: 34px;
+  height: 34px;
+}
+
+.rail-tools .icon-btn.wide { width: auto; height: 34px; padding: 0 8px; font-size: 13px; }
+
+.quiz-island {
+  width: 100%;
+  flex: 0 0 34%;
+  min-height: 96px;
+  border-radius: 18px;
+}
+
+.vtrack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
   gap: 3px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  padding: 2px 0;
+  pointer-events: none;
 }
 
 .bead {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.85);
+  background: #e7e1d8;
   box-shadow: inset 0 0 0 1px rgba(80, 60, 30, 0.12);
+  flex: none;
 }
 
-.bead.gap { margin-left: 4px; }
 .bead.done { background: #ffd15c; box-shadow: 0 0 6px rgba(255, 190, 40, 0.8); }
-.bead.now { background: #ff8a12; transform: scale(1.35); }
-.bead.trophy { width: auto; height: auto; background: none; box-shadow: none; font-size: 12px; filter: grayscale(1); }
+.bead.now { background: #3ecf7a; transform: scale(1.25); box-shadow: 0 0 8px rgba(62, 207, 122, 0.8); }
+.bead.trophy { width: auto; height: auto; background: none; box-shadow: none; font-size: 16px; filter: grayscale(1); }
 .bead.trophy.done { filter: none; }
 
-.quiz-card {
-  margin: 0 2px 6px;
-  background: linear-gradient(180deg, #fffaf3, #fff3e4);
-  border-radius: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 0 rgba(90, 60, 20, 0.08), 0 14px 24px rgba(40, 30, 10, 0.08);
-  padding: 6px 10px 8px;
+.stage-badge {
+  width: 100%;
+  text-align: center;
+  background: #fff;
+  border-radius: 16px;
+  padding: 6px 4px 7px;
+  box-shadow: inset 0 2px 0 #fff, 0 4px 0 rgba(80, 50, 20, 0.08);
+  pointer-events: none;
+}
+
+.stage-badge span { display: block; font-size: 13px; font-weight: 800; }
+.stage-badge strong { font-size: 20px; }
+
+.quiz-board {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(300px, 1.22fr);
+  gap: 10px;
+}
+
+.answer-panel {
+  min-width: 0;
+  min-height: 0;
+  position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-  height: calc(100% - 8px);
-  position: relative;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  border-radius: 28px;
+  background: linear-gradient(180deg, #fffaf3, #fff3e4);
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 0 rgba(90, 60, 20, 0.06);
 }
 
 .equation {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: nowrap;
   gap: 6px;
-  min-height: 58px;
-  flex: none;
+  max-width: 100%;
+  font-size: clamp(34px, 5.4vw, 56px);
 }
 
 .equation.is-shaking { animation: shake 0.42s ease; }
@@ -276,19 +312,21 @@ body[data-screen='quiz'] #stage { height: 44%; }
   border-radius: 0.28em;
   color: white;
   font-weight: 800;
-  font-size: clamp(34px, 9vh, 52px);
+  font-size: 1em;
   font-family: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "PingFang SC", sans-serif;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.14);
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.55), 0 4px 0 rgba(0, 0, 0, 0.12);
 }
 
 .answer-bubble {
-  width: 1.28em;
-  height: 1.28em;
-  border-radius: 50%;
+  min-width: 1.35em;
+  width: auto;
+  height: 1.22em;
+  padding: 0 0.22em;
+  border-radius: 0.42em;
   display: grid;
   place-items: center;
-  font-size: clamp(34px, 9vh, 52px);
+  font-size: 1em;
   font-weight: 800;
   color: white;
   background: radial-gradient(circle at 35% 30%, #fff6c2, #ffd24a 46%, #f5a623);
@@ -298,11 +336,10 @@ body[data-screen='quiz'] #stage { height: 44%; }
 
 .message {
   margin: 0;
-  min-height: 18px;
+  min-height: 28px;
   text-align: center;
   font-weight: 800;
-  font-size: 15px;
-  flex: none;
+  font-size: 22px;
 }
 
 .message.cheer { color: #2f9e4a; }
@@ -312,6 +349,7 @@ body[data-screen='quiz'] #stage { height: 44%; }
   position: absolute;
   right: 14px;
   top: 8px;
+  pointer-events: none;
   background: linear-gradient(180deg, #fff6c2, #ffd15c);
   color: #8a3d00;
   font-weight: 800;
@@ -326,7 +364,7 @@ body[data-screen='quiz'] #stage { height: 44%; }
 .streak-banner {
   position: absolute;
   left: 50%;
-  top: -16px;
+  top: 10px;
   transform: translateX(-50%);
   background: linear-gradient(180deg, #fff4b0, #ffc24a);
   color: #7a3b00;
@@ -338,30 +376,57 @@ body[data-screen='quiz'] #stage { height: 44%; }
   animation: pop 0.35s ease;
   z-index: 2;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .keypad {
-  flex: 1;
+  min-width: 0;
   min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(4, 1fr);
-  gap: 7px;
-  width: min(620px, 100%);
-  margin: 2px auto 0;
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  grid-template-rows: repeat(3, minmax(64px, 1fr));
+  gap: 8px;
+  touch-action: manipulation;
 }
 
 .key {
-  border-radius: 18px;
+  min-width: 0;
+  min-height: 64px;
+  border-radius: 22px;
   color: white;
-  font-size: clamp(22px, 5vh, 30px);
+  font-size: clamp(32px, 7vh, 44px);
   font-weight: 800;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 42%), var(--key);
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.75), 0 5px 0 var(--lip);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 46%), var(--key);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.8), 0 6px 0 var(--lip);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.14);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.key:active { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 1px 0 var(--lip); }
+.key-del, .key-ok {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1;
+  font-size: clamp(18px, 3.4vh, 24px);
+}
+
+.key-mark { font-size: 1.35em; line-height: 1; }
+
+.key-ok {
+  background: linear-gradient(180deg, #b6f59a, #3dce6a 46%, #2ebd58);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.7), 0 7px 0 #1c8c3a;
+}
+
+.key.is-down {
+  transform: translateY(5px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7), 0 1px 0 var(--lip);
+}
 
 .award-card {
   margin: 0 auto 6px;

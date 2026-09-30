@@ -300,7 +300,7 @@ export class Stage {
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.fov = this.mode === 'quiz' ? 30 : this.mode === 'results' ? 30 : 32;
+    this.camera.fov = this.mode === 'quiz' ? 36 : this.mode === 'results' ? 30 : 32;
     this.camera.updateProjectionMatrix();
   }
 
@@ -388,10 +388,10 @@ export class Stage {
 
   private applyCamera(time: number): void {
     if (this.mode === 'quiz') {
-      const focus = this.quizAnim.rig.group.position.x;
-      const sway = Math.sin(time * 0.35) * 0.07;
-      this.camera.position.set(focus * 0.32 + sway, 1.62, 5.25);
-      this.camera.lookAt(focus * 0.22, 0.42, 0.08);
+      const dino = this.quizAnim.rig.group.position;
+      const sway = Math.sin(time * 0.4) * 0.04;
+      this.camera.position.set(dino.x + 0.06 + sway, dino.y + 1.02, dino.z + 2.2);
+      this.camera.lookAt(dino.x, dino.y + 0.46, dino.z);
       return;
     }
     if (this.mode === 'results') {
