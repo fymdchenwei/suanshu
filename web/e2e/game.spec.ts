@@ -134,8 +134,9 @@ test('quiz keys are large and answers stay visible', async ({ page }) => {
 
   await page.keyboard.press('Backspace');
   await answerCurrent(page);
+  await expect(page.locator('#message')).toContainText('这次对啦');
+  await answerCurrent(page);
   await expect(page.locator('#message')).toContainText('答对啦');
-  await page.waitForTimeout(250);
   await page.screenshot({ path: `${shots}/quiz_correct.png` });
   expect(errors, errors.join('\n')).toEqual([]);
 });
