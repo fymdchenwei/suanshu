@@ -55,34 +55,30 @@ export function mountApp(session: GameSession, stage: Stage): void {
   buildTrack(ui.track);
   buildAlbum(ui.album);
 
-  ui.start.addEventListener('click', () => session.startRound());
-  ui.openCards.addEventListener('click', () => session.openCards());
-  ui.cardPocket.addEventListener('click', () => session.openCards());
-  ui.resultsCards.addEventListener('click', () => session.openCards());
-  ui.exit.addEventListener('click', () => session.requestExit());
-  ui.resultsHome.addEventListener('click', () => session.goHome());
-  ui.again.addEventListener('click', () => session.playAgain());
-  ui.closeCards.addEventListener('click', () => session.closeCards());
-  ui.dismissChest.addEventListener('click', () => {
+  bindTap(ui.start, () => session.startRound());
+  bindTap(ui.openCards, () => session.openCards());
+  bindTap(ui.cardPocket, () => session.openCards());
+  bindTap(ui.resultsCards, () => session.openCards());
+  bindTap(ui.exit, () => session.requestExit());
+  bindTap(ui.resultsHome, () => session.goHome());
+  bindTap(ui.again, () => session.playAgain());
+  bindTap(ui.closeCards, () => session.closeCards());
+  bindTap(ui.dismissChest, () => {
     if (!ui.revealCard.hidden) flyClone(ui.revealCard, ui.cardPocket);
     session.dismissChest();
   });
-  ui.keepPlaying.addEventListener('click', () => session.cancelExit());
-  ui.confirmExit.addEventListener('click', () => session.goHome());
-  ui.share.addEventListener('click', () => void share(session));
-  ui.closeInspect.addEventListener('click', () => {
+  bindTap(ui.keepPlaying, () => session.cancelExit());
+  bindTap(ui.confirmExit, () => session.goHome());
+  bindTap(ui.share, () => void share(session));
+  bindTap(ui.closeInspect, () => {
     ui.inspect.hidden = true;
     ui.inspectTilt?.();
     ui.inspectTilt = undefined;
   });
-  ui.cards.addEventListener('click', (event) => {
-    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
-    if (!button) return;
-    openInspect(ui, button.dataset.card ?? '', session);
-  });
+  bindCardTap(ui.cards, (id) => openInspect(ui, id, session));
   ui.album.addEventListener('pointermove', (event) => tiltCard(event));
   for (const button of root.querySelectorAll<HTMLButtonElement>('[data-mute]')) {
-    button.addEventListener('click', () => session.toggleMute());
+    bindTap(button, () => session.toggleMute());
   }
 
   window.addEventListener('keydown', (event) => {
@@ -376,7 +372,7 @@ function buildDifficulty(row: HTMLElement, session: GameSession): void {
     button.type = 'button';
     button.className = 'diff';
     button.dataset.difficulty = String(difficulty);
-    button.addEventListener('click', () => session.setDifficulty(difficulty));
+    bindTap(button, () => session.setDifficulty(difficulty));
     row.append(button);
   }
 }
@@ -410,6 +406,81 @@ function buildKeypad(pad: HTMLElement, session: GameSession): void {
   }
 }
 
+/** One finger-up inside the control runs the action. Pointer capture keeps the tap
+ * if the button shifts, and the extra click from mouse/touch is ignored. */
+function bindTap(element: HTMLElement, action: () => void): void {
+  let armed = false;
+  let originX = 0;
+  let originY = 0;
+  element.addEventListener('pointerdown', (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    armed = true;
+    originX = event.clientX;
+    originY = event.clientY;
+    element.classList.add('is-pressed');
+    try {
+      element.setPointerCapture(event.pointerId);
+    } catch {
+      // The control can be detached before capture is available.
+    }
+    event.preventDefault();
+  });
+  const finish = (event: PointerEvent, fire: boolean) => {
+    if (!armed) return;
+    armed = false;
+    element.classList.remove('is-pressed');
+    if (!fire) return;
+    const rect = element.getBoundingClientRect();
+    const near =
+      event.clientX >= rect.left - 16 &&
+      event.clientX <= rect.right + 16 &&
+      event.clientY >= rect.top - 16 &&
+      event.clientY <= rect.bottom + 16;
+    const slipped = Math.hypot(event.clientX - originX, event.clientY - originY) > 28;
+    if (near && !slipped) action();
+  };
+  element.addEventListener('pointerup', (event) => finish(event, true));
+  element.addEventListener('pointercancel', (event) => finish(event, false));
+  element.addEventListener('click', (event) => {
+    if (event.detail !== 0) return;
+    action();
+  });
+}
+
+function bindCardTap(host: HTMLElement, action: (id: string) => void): void {
+  let armed: { id: number; x: number; y: number; moved: boolean } | null = null;
+  host.addEventListener('pointerdown', (event) => {
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    armed = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
+    button.classList.add('is-pressed');
+  });
+  host.addEventListener('pointermove', (event) => {
+    if (!armed || armed.id !== event.pointerId) return;
+    if (Math.hypot(event.clientX - armed.x, event.clientY - armed.y) > 12) armed.moved = true;
+  });
+  const clearPressed = () => host.querySelectorAll('.is-pressed').forEach((node) => node.classList.remove('is-pressed'));
+  host.addEventListener('pointerup', (event) => {
+    const gesture = armed;
+    armed = null;
+    clearPressed();
+    if (!gesture || gesture.moved || gesture.id !== event.pointerId) return;
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    action(button.dataset.card ?? '');
+  });
+  host.addEventListener('pointercancel', () => {
+    armed = null;
+    clearPressed();
+  });
+  host.addEventListener('click', (event) => {
+    if (event.detail !== 0) return;
+    const button = (event.target as Element).closest<HTMLButtonElement>('.tc');
+    if (!button || !host.contains(button)) return;
+    action(button.dataset.card ?? '');
+  });
+}
+
 function buzz(): void {
   const vibrate = navigator.vibrate?.bind(navigator);
   if (!vibrate) return;
@@ -431,6 +502,7 @@ function placeQuizStage(session: GameSession): void {
     canvas.style.height = '100%';
     canvas.style.zIndex = '0';
     canvas.style.borderRadius = '0';
+    canvas.style.pointerEvents = 'none';
     return;
   }
   const rect = island.getBoundingClientRect();
@@ -440,6 +512,7 @@ function placeQuizStage(session: GameSession): void {
   canvas.style.height = `${Math.max(1, rect.height)}px`;
   canvas.style.zIndex = '2';
   canvas.style.borderRadius = '10px';
+  canvas.style.pointerEvents = 'none';
 }
 
 function buildTrack(track: HTMLElement): void {
@@ -493,15 +566,24 @@ function sync(ui: Ui, session: GameSession): void {
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
     const selected = session.difficulty === difficulty;
     button.classList.toggle('selected', selected);
-    button.innerHTML = `<strong>${shortTitle(difficulty)}</strong><small>${chipNote(difficulty)}</small><div class="stars">${'★'.repeat(best)}${'☆'.repeat(3 - best)}</div>`;
+    const markup = `<strong>${shortTitle(difficulty)}</strong><small>${chipNote(difficulty)}</small><div class="stars">${'★'.repeat(best)}${'☆'.repeat(3 - best)}</div>`;
+    const view = `${markup}|${selected}`;
+    if (button.dataset.view !== view) {
+      button.dataset.view = view;
+      button.innerHTML = markup;
+    }
     button.setAttribute('aria-label', `${shortTitle(difficulty)}，${detail(difficulty)}，最佳 ${best} 颗星`);
     if (selected) button.setAttribute('aria-selected', 'true');
     else button.removeAttribute('aria-selected');
   }
 
   for (const button of ui.mutes) {
-    button.innerHTML = speakerSvg(session.isMuted);
-    button.setAttribute('aria-label', session.isMuted ? Copy.unmute : Copy.mute);
+    const label = session.isMuted ? Copy.unmute : Copy.mute;
+    if (button.dataset.view !== label) {
+      button.dataset.view = label;
+      button.innerHTML = speakerSvg(session.isMuted);
+    }
+    button.setAttribute('aria-label', label);
   }
 
   const problem = session.chest ? session.problems[session.index - 1] : session.currentProblem;

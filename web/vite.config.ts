@@ -31,7 +31,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        cacheId: 'suanshu-v4',
+        cacheId: 'suanshu-v5',
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,

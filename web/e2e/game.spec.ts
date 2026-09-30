@@ -56,7 +56,7 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await page.waitForTimeout(500);
   await page.screenshot({ path: `${shots}/results_success.png` });
 
-  await page.locator('#results-cards').click();
+  await page.locator('#results-cards').tap();
   await expect(page.locator('#cards')).toBeVisible();
   await expect(page.locator('#album .tc').first()).toBeVisible();
   await page.waitForTimeout(450);
@@ -207,6 +207,80 @@ test('works offline after the first load', async ({ page }) => {
   await page.context().setOffline(false);
 });
 
+test('one tap reaches each control on an iPhone', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
+
+  await page.goto('/suanshu/');
+  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-ready') === '1');
+
+  const targets = ['#start', '#home .diff', '#home [data-mute]', '#open-cards'];
+  for (const selector of targets) {
+    const box = await page.locator(selector).first().boundingBox();
+    expect(box, selector).toBeTruthy();
+    expect(box!.height, selector).toBeGreaterThanOrEqual(44);
+    expect(box!.width, selector).toBeGreaterThanOrEqual(44);
+  }
+
+  const mute = page.locator('#home [data-mute]');
+  await expect(mute).toHaveAttribute('aria-label', '静音');
+  await mute.tap();
+  await expect(mute).toHaveAttribute('aria-label', '打开声音');
+
+  const carry = page.locator('#diff-row .diff').nth(1);
+  await carry.tap();
+  await expect(carry).toHaveAttribute('aria-selected', 'true');
+
+  await page.getByRole('button', { name: '开始闯关' }).tap();
+  await expect(page.locator('#quiz')).toBeVisible();
+  const quizTargets = ['#exit', '#card-pocket', '#quiz [data-mute]', '#keypad .key'];
+  for (const selector of quizTargets) {
+    const box = await page.locator(selector).first().boundingBox();
+    expect(box, selector).toBeTruthy();
+    expect(box!.height, selector).toBeGreaterThanOrEqual(44);
+    expect(box!.width, selector).toBeGreaterThanOrEqual(44);
+  }
+
+  await page.locator('#keypad').getByRole('button', { name: '确定' }).tap();
+  await expect(page.locator('#equation')).toHaveClass(/is-shaking/);
+
+  await page.getByRole('button', { name: '小岛' }).tap();
+  await expect(page.locator('#exit-modal')).toBeVisible();
+  const keep = page.getByRole('button', { name: '继续答题' });
+  const keepBox = await keep.boundingBox();
+  expect(keepBox!.height).toBeGreaterThanOrEqual(44);
+  await keep.tap();
+  await expect(page.locator('#exit-modal')).toBeHidden();
+
+  await page.locator('#card-pocket').tap();
+  await expect(page.locator('#cards')).toBeVisible();
+  const card = page.locator('#album .tc').first();
+  const cardBox = await card.boundingBox();
+  expect(cardBox!.height).toBeGreaterThanOrEqual(44);
+  await card.tap();
+  await expect(page.locator('#inspect')).toBeVisible();
+  await page.locator('#close-inspect').tap();
+  await expect(page.locator('#inspect')).toBeHidden();
+  await page.locator('#close-cards').tap();
+  await expect(page.locator('#quiz')).toBeVisible();
+
+  await blur(page);
+  for (let step = 0; step < 10; step += 1) await answerCurrent(page);
+  await expect(page.locator('#chest')).toBeVisible();
+  const dismiss = page.locator('#dismiss-chest');
+  const dismissBox = await dismiss.boundingBox();
+  expect(dismissBox!.height).toBeGreaterThanOrEqual(44);
+  const title = await page.locator('#chest-title').innerText();
+  await dismiss.tap();
+  if (await page.locator('#chest').isVisible()) {
+    await expect(page.locator('#chest-title')).not.toHaveText(title);
+  }
+  expect(errors, errors.join('\n')).toEqual([]);
+});
+
 test('asks for landscape in portrait', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/suanshu/');
@@ -224,7 +298,7 @@ async function blur(page: Page) {
 async function clearChest(page: Page) {
   for (let i = 0; i < 6; i += 1) {
     if (!(await page.locator('#chest').isVisible())) return;
-    await page.locator('#dismiss-chest').click();
+    await page.locator('#dismiss-chest').tap();
   }
 }
 

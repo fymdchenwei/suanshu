@@ -17,7 +17,7 @@ html, body {
   width: 100%;
   background: var(--sky);
   overscroll-behavior: none;
-  touch-action: none;
+  touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -80,7 +80,7 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 .screen-quiz {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 34px minmax(192px, 0.92fr);
+  grid-template-rows: minmax(0, 1fr) 48px minmax(192px, 0.92fr);
   row-gap: 4px;
   height: 100%;
   min-height: 0;
@@ -106,7 +106,7 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: 48px;
   padding: 0 14px;
   border-radius: 999px;
   font-weight: 800;
@@ -121,8 +121,10 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 .pill-count { font-size: 14px; opacity: 0.75; }
 
 .mute, .icon-btn {
-  width: 42px;
-  height: 42px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
   display: grid;
@@ -151,6 +153,7 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 }
 
 .diff {
+  min-height: 48px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.86);
   border: 3px solid white;
@@ -188,7 +191,9 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 
 .start i { font-style: normal; color: #fff6c8; }
 
-.start:active, .btn:active, .key:active, .diff:active, .pill:active { transform: translateY(4px); }
+.start.is-pressed, .btn.is-pressed, .diff.is-pressed, .pill.is-pressed, .icon-btn.is-pressed, .mute.is-pressed, .tc.is-pressed {
+  filter: brightness(0.96);
+}
 
 .home-note {
   margin: 0;
@@ -204,14 +209,16 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 34px;
-  min-height: 0;
+  height: 48px;
+  min-height: 48px;
 }
 
 .quiz-strip .mute,
 .quiz-strip .icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
   flex: none;
 }
 
