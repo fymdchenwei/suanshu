@@ -1,4 +1,5 @@
 import { Difficulty, type Difficulty as DifficultyId } from '../engine/questionEngine';
+import { LEGACY_STICKERS, legacyCardId, type EarnedCard } from './cards';
 
 export interface RoundRecord {
   id: string;
@@ -28,6 +29,7 @@ export interface SaveData {
   muted: boolean;
   difficulty: DifficultyId;
   stickers: CollectedSticker[];
+  cards: EarnedCard[];
   rounds: RoundRecord[];
   bests: Partial<Record<DifficultyId, DifficultyBest>>;
   cumulativeFirstTry: number;
@@ -46,6 +48,7 @@ export function defaultSave(): SaveData {
     muted: false,
     difficulty: Difficulty.within20NoCarry,
     stickers: [],
+    cards: [],
     rounds: [],
     bests: {},
     cumulativeFirstTry: 0,
@@ -62,8 +65,9 @@ export function normalize(raw: unknown): SaveData {
   base.difficulty = isDifficulty(difficulty) ? difficulty : Difficulty.within20NoCarry;
   base.cumulativeFirstTry = clampInt(source.cumulativeFirstTry);
   base.bestStreak = clampInt(source.bestStreak);
-  base.stickers = Array.isArray(source.stickers)
-    ? source.stickers.filter(isSticker).slice(0, 15)
+  base.stickers = Array.isArray(source.stickers) ? source.stickers.filter(isSticker).slice(0, 15) : [];
+  base.cards = Array.isArray(source.cards)
+    ? source.cards.filter(isCard).slice(0, 80).map(cleanCard)
     : [];
   base.rounds = Array.isArray(source.rounds) ? source.rounds.filter(isRound).slice(0, 40) : [];
   if (source.bests && typeof source.bests === 'object') {
@@ -77,6 +81,7 @@ export function normalize(raw: unknown): SaveData {
       };
     }
   }
+  migrateStickers(base);
   return base;
 }
 
@@ -86,7 +91,13 @@ export function localStore(): Store {
       try {
         const raw = localStorage.getItem(KEY);
         if (!raw) return defaultSave();
-        return normalize(JSON.parse(raw));
+        const parsed = JSON.parse(raw) as unknown;
+        const data = normalize(parsed);
+        const hadCards = Boolean(parsed && typeof parsed === 'object' && Array.isArray((parsed as { cards?: unknown }).cards));
+        if (!hadCards && data.cards.length > 0) {
+          localStorage.setItem(KEY, JSON.stringify(data));
+        }
+        return data;
       } catch {
         return defaultSave();
       }
@@ -113,6 +124,20 @@ export class MemoryStore implements Store {
   }
 }
 
+function migrateStickers(data: SaveData): void {
+  for (const sticker of data.stickers) {
+    if (!LEGACY_STICKERS[sticker.id]) continue;
+    const id = legacyCardId(sticker.id);
+    if (data.cards.some((card) => card.id === id)) continue;
+    data.cards.push({
+      id,
+      earnedAt: sticker.earnedAt,
+      achievement: `以前的贴纸：${LEGACY_STICKERS[sticker.id]?.name ?? sticker.id}`,
+      correctCount: 0,
+    });
+  }
+}
+
 function isDifficulty(value: number): value is DifficultyId {
   return value === 1 || value === 2 || value === 3 || value === 4;
 }
@@ -121,6 +146,21 @@ function isSticker(value: unknown): value is CollectedSticker {
   if (!value || typeof value !== 'object') return false;
   const sticker = value as CollectedSticker;
   return typeof sticker.id === 'string' && typeof sticker.earnedAt === 'string';
+}
+
+function isCard(value: unknown): value is EarnedCard {
+  if (!value || typeof value !== 'object') return false;
+  const card = value as EarnedCard;
+  return typeof card.id === 'string' && card.id.length > 0 && card.id.length < 80 && typeof card.earnedAt === 'string';
+}
+
+function cleanCard(card: EarnedCard): EarnedCard {
+  return {
+    id: card.id,
+    earnedAt: card.earnedAt,
+    achievement: typeof card.achievement === 'string' ? card.achievement.slice(0, 80) : '',
+    correctCount: clampInt(card.correctCount),
+  };
 }
 
 function isRound(value: unknown): value is RoundRecord {

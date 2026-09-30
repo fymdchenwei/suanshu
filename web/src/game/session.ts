@@ -10,21 +10,23 @@ import {
   type Problem,
 } from '../engine/questionEngine';
 import type { AudioPlayer } from './audio';
+import { newGrants, type CardGrant, type EarnedCard } from './cards';
 import { Copy } from './copy';
-import { STICKERS, type Sticker } from './stickers';
 import {
-  type CollectedSticker,
   type DifficultyBest,
   type RoundRecord,
   type SaveData,
   type Store,
+  normalize,
 } from './storage';
 
-export type Screen = 'home' | 'quiz' | 'results' | 'stickers';
+export type Screen = 'home' | 'quiz' | 'results' | 'cards';
 
 export interface ChestAward {
   stage: number;
-  sticker: Sticker | null;
+  cards: CardGrant[];
+  banked: number;
+  cursor: number;
   isFinal: boolean;
 }
 
@@ -32,6 +34,8 @@ export interface SessionOptions {
   now?: () => number;
   random?: () => number;
 }
+
+const REVEAL_LIMIT = 3;
 
 export class GameSession {
   screen: Screen = 'home';
@@ -48,15 +52,19 @@ export class GameSession {
   encouragementIsCheer = false;
   streakBanner: string | null = null;
   chest: ChestAward | null = null;
-  earnedThisRound: Sticker[] = [];
+  earnedThisRound: EarnedCard[] = [];
   duration = 0;
   isMuted: boolean;
   exitPrompt = false;
 
-  private screenBeforeStickers: Screen = 'home';
+  private screenBeforeCards: Screen = 'home';
   private missedCurrent = false;
   private savedRound = false;
   private startedAt = 0;
+  private stageFirstTry = 0;
+  private streakHit5 = false;
+  private streakHit10 = false;
+  private hadRetry = false;
   private data: SaveData;
   private cheerTimer: ReturnType<typeof setTimeout> | undefined;
   private bannerTimer: ReturnType<typeof setTimeout> | undefined;
@@ -71,7 +79,9 @@ export class GameSession {
   ) {
     this.now = options.now ?? (() => Date.now());
     this.random = options.random ?? Math.random;
-    this.data = store.load();
+    const loaded = store.load();
+    this.data = normalize(loaded);
+    if (this.data.cards.length > loaded.cards.length) this.persist();
     this.difficulty = this.data.difficulty;
     this.isMuted = this.data.muted;
     this.audio.muted = this.isMuted;
@@ -144,6 +154,10 @@ export class GameSession {
     this.earnedThisRound = [];
     this.missedCurrent = false;
     this.savedRound = false;
+    this.stageFirstTry = 0;
+    this.streakHit5 = false;
+    this.streakHit10 = false;
+    this.hadRetry = false;
     this.duration = 0;
     this.exitPrompt = false;
     this.startedAt = this.now();
@@ -181,10 +195,12 @@ export class GameSession {
 
     if (value !== answerOf(problem)) {
       this.missedCurrent = true;
+      this.hadRetry = true;
       this.streak = 0;
       this.wrongToken += 1;
       this.encouragementIsCheer = false;
-      this.encouragement = Copy.encouragements[Math.floor(this.random() * Copy.encouragements.length)] ?? Copy.encouragements[0];
+      const line = Copy.encouragements[Math.floor(this.random() * Copy.encouragements.length)] ?? Copy.wrongHint;
+      this.encouragement = line.includes('再试一次') ? line : `${Copy.wrongHint} ${line}`;
       this.audio.playWrong();
       this.emit();
       return;
@@ -193,8 +209,11 @@ export class GameSession {
     const firstTry = !this.missedCurrent;
     if (firstTry) {
       this.firstTryCorrect += 1;
+      this.stageFirstTry += 1;
       this.streak += 1;
       this.bestStreakThisRound = Math.max(this.bestStreakThisRound, this.streak);
+      if (this.streak >= 5) this.streakHit5 = true;
+      if (this.streak >= 10) this.streakHit10 = true;
     } else {
       this.streak = 0;
     }
@@ -204,7 +223,7 @@ export class GameSession {
     this.encouragementIsCheer = true;
     this.encouragement = firstTry ? Copy.correctCheer : Copy.correctAfterRetry;
     this.scheduleClearCheer();
-    this.audio.playCorrect();
+    this.audio.playCorrect(Math.max(1, this.streak));
     this.audio.playHop();
 
     if (this.streak === 5) {
@@ -222,17 +241,29 @@ export class GameSession {
     }
 
     const stage = this.index / PROBLEMS_PER_STAGE;
-    this.chest = this.grantSticker(stage);
-    this.audio.playChest();
-    if (this.index === ROUND_SIZE) {
+    const finished = this.index === ROUND_SIZE;
+    if (finished) {
       this.duration = Math.max(0, (this.now() - this.startedAt) / 1000);
       this.persistRound();
     }
+    this.chest = this.grantCards(stage, finished);
+    this.audio.playChest();
+    this.stageFirstTry = 0;
+    this.streakHit5 = false;
+    this.streakHit10 = false;
+    this.hadRetry = false;
     this.emit();
   }
 
   dismissChest(): void {
-    const finished = this.chest?.isFinal === true;
+    if (!this.chest) return;
+    if (this.chest.cursor + 1 < this.chest.cards.length) {
+      this.chest.cursor += 1;
+      this.audio.playTap();
+      this.emit();
+      return;
+    }
+    const finished = this.chest.isFinal;
     this.chest = null;
     if (finished) {
       this.screen = 'results';
@@ -272,15 +303,15 @@ export class GameSession {
     this.emit();
   }
 
-  openStickers(): void {
-    this.screenBeforeStickers = this.screen === 'stickers' ? this.screenBeforeStickers : this.screen;
-    this.screen = 'stickers';
+  openCards(): void {
+    this.screenBeforeCards = this.screen === 'cards' ? this.screenBeforeCards : this.screen;
+    this.screen = 'cards';
     this.audio.playTap();
     this.emit();
   }
 
-  closeStickers(): void {
-    this.screen = this.screenBeforeStickers;
+  closeCards(): void {
+    this.screen = this.screenBeforeCards;
     this.emit();
   }
 
@@ -293,23 +324,49 @@ export class GameSession {
     this.emit();
   }
 
-  private grantSticker(stage: number): ChestAward {
-    const owned = new Set(this.data.stickers.map((sticker) => sticker.id));
-    for (const sticker of this.earnedThisRound) owned.add(sticker.id);
-    const remaining = STICKERS.filter((sticker) => !owned.has(sticker.id));
-    const sticker = remaining.length === 0 ? null : remaining[Math.floor(this.random() * remaining.length)] ?? null;
-    if (sticker) {
-      const record: CollectedSticker = {
-        id: sticker.id,
-        earnedAt: new Date(this.now()).toISOString(),
-        difficulty: this.difficulty,
+  private grantCards(stage: number, finished: boolean): ChestAward {
+    const owned = new Set(this.data.cards.map((card) => card.id));
+    for (const card of this.earnedThisRound) owned.add(card.id);
+    const todayBase = countToday(this.data.rounds, this.now());
+    const grants = newGrants(
+      {
         stage,
+        stageFirstTry: this.stageFirstTry,
+        streakHit5: this.streakHit5,
+        streakHit10: this.streakHit10,
+        bestStreak: Math.max(this.data.bestStreak, this.bestStreakThisRound),
+        hadRetry: this.hadRetry,
+        roundFirstTry: this.firstTryCorrect,
+        stars: finished ? this.stars : 0,
+        perfect: finished && this.firstTryCorrect === ROUND_SIZE,
+        finishedRound: finished,
+        difficulty: this.difficulty,
+        todayFirstTry: finished ? todayBase : todayBase + this.firstTryCorrect,
+        cumulativeFirstTry: finished ? this.data.cumulativeFirstTry : this.data.cumulativeFirstTry + this.firstTryCorrect,
+        roundsCompleted: totalRounds(this.data),
+        difficultiesCleared: clearedDifficulties(this.data),
+      },
+      owned,
+    );
+    const earnedAt = new Date(this.now()).toISOString();
+    for (const grant of grants) {
+      const record: EarnedCard = {
+        id: grant.id,
+        earnedAt,
+        achievement: grant.achievement,
+        correctCount: grant.correctCount,
       };
-      this.data.stickers.push(record);
-      this.earnedThisRound.push(sticker);
-      this.persist();
+      this.data.cards.push(record);
+      this.earnedThisRound.push(record);
     }
-    return { stage, sticker, isFinal: stage === STAGE_COUNT };
+    if (grants.length > 0) this.persist();
+    return {
+      stage,
+      cards: grants.slice(0, REVEAL_LIMIT),
+      banked: Math.max(0, grants.length - REVEAL_LIMIT),
+      cursor: 0,
+      isFinal: stage === STAGE_COUNT,
+    };
   }
 
   private persistRound(): void {
@@ -352,7 +409,7 @@ export class GameSession {
         this.streakBanner = null;
         this.emit();
       }
-    }, 1500);
+    }, 1600);
   }
 
   private scheduleClearCheer(): void {
@@ -369,6 +426,26 @@ export class GameSession {
   private emit(): void {
     for (const listener of this.listeners) listener();
   }
+}
+
+function countToday(rounds: RoundRecord[], nowMs: number): number {
+  const today = new Date(nowMs);
+  return rounds.reduce((sum, round) => {
+    const played = new Date(round.playedAt);
+    const same =
+      played.getFullYear() === today.getFullYear() &&
+      played.getMonth() === today.getMonth() &&
+      played.getDate() === today.getDate();
+    return same ? sum + round.firstTryCorrect : sum;
+  }, 0);
+}
+
+function totalRounds(data: SaveData): number {
+  return ([1, 2, 3, 4] as DifficultyId[]).reduce((sum, difficulty) => sum + (data.bests[difficulty]?.roundsPlayed ?? 0), 0);
+}
+
+function clearedDifficulties(data: SaveData): number[] {
+  return ([1, 2, 3, 4] as DifficultyId[]).filter((difficulty) => (data.bests[difficulty]?.roundsPlayed ?? 0) > 0);
 }
 
 function freshSeed(): bigint {

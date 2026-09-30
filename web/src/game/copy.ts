@@ -4,35 +4,44 @@ export const Copy = {
   appName: '算数小恐龙',
   islandName: '小恐龙闯关岛',
   start: '开始闯关',
-  stickerBook: '贴纸本',
+  cardBook: '奖励卡片',
   again: '再来一轮',
   backToIsland: '回到小岛',
   backToIslandShort: '小岛',
-  collectSticker: '收下贴纸',
+  collectCard: '收下卡片',
   seeScore: '看看成绩',
   continuePlaying: '继续闯关',
-  stickersComplete: '贴纸都集齐啦！',
-  stickersCompleteDetail: '宝箱还是为你打开啦，你真厉害。',
+  cardsBanked: '还有几张已经放进卡片本啦',
+  chestEmptyTitle: '宝箱打开啦',
+  chestEmptyDetail: '新卡片都在你的册子里啦，继续加油～',
   firstTryCaption: '一次答对',
   exitTitle: '要回到小岛吗？',
-  exitMessage: '这次闯关还没完成，进度不会保存。已经拿到的贴纸会留下来。',
+  exitMessage: '这次闯关还没完成，进度不会保存。已经拿到的卡片会留下来。',
   keepPlaying: '继续答题',
   mute: '静音',
   unmute: '打开声音',
   share: '分享',
-  lockedSticker: '还没收集到',
+  lockedCard: '还没收集到',
   noRoundsYet: '选一个难度，开始第一轮吧',
-  streak5: '连对 5 题！',
-  streak10: '连对 10 题！太厉害啦！',
+  streak5: '太棒啦！连对 5 题！',
+  streak10: '太棒啦！连对 10 题！',
   correctCheer: '答对啦！',
   correctAfterRetry: '这次对啦，前进吧！',
+  wrongHint: '再试一次～',
   chestTitle: '宝箱打开啦',
   delete: '删除',
   submit: '确定',
   rotateTitle: '请把手机转成横屏',
   back: '返回',
+  gentleTitle: '再加油！',
+  gentleBody: '小恐龙一直陪着你，下一轮会更顺的～',
+  goodTitle: '做得好！',
+  goodBody: '稳稳的一步，小岛为你开心！',
+  greatTitle: '太棒啦！',
+  greatBody: '星星都亮起来啦，你真厉害！',
+  bestStreakLabel: '最佳连对',
   encouragements: [
-    '再试一次，你一定可以！',
+    '再试一次～',
     '差一点点，再想想～',
     '没关系，慢慢算！',
     '小恐龙给你加油！',
@@ -70,6 +79,22 @@ export function collectedCount(count: number, total: number): string {
 
 export function roundsPlayed(count: number): string {
   return count === 0 ? Copy.noRoundsYet : `已经闯了 ${count} 轮`;
+}
+
+export function resultTitle(stars: number): string {
+  if (stars >= 3) return Copy.greatTitle;
+  if (stars === 2) return Copy.goodTitle;
+  return Copy.gentleTitle;
+}
+
+export function resultBody(stars: number): string {
+  if (stars >= 3) return Copy.greatBody;
+  if (stars === 2) return Copy.goodBody;
+  return Copy.gentleBody;
+}
+
+export function comboText(streak: number): string {
+  return `连对 ${streak}`;
 }
 
 export function shortTitle(difficulty: DifficultyId): string {
