@@ -72,15 +72,16 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 
 .screen-quiz {
   display: grid;
-  grid-template-columns: minmax(132px, 20%) minmax(0, 1fr);
-  column-gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 44px minmax(88px, 1fr) minmax(204px, 1.75fr);
+  row-gap: 6px;
   height: 100%;
   min-height: 0;
 }
 
 .screen.screen-quiz:not([hidden]) { animation: none; }
 
-.topbar, .home-dock, .quiz-rail, .answer-panel, .keypad, .results-actions, .award-card, .sheet, .modal-card, .icon-btn, .mute, .pill, .start, .diff, .key, .btn, .album, .tc, .inspect-wrap {
+.topbar, .home-dock, .quiz-top, .answer-panel, .keypad, .results-actions, .award-card, .sheet, .modal-card, .icon-btn, .mute, .pill, .start, .diff, .key, .btn, .album, .tc, .inspect-wrap {
   pointer-events: auto;
 }
 
@@ -192,50 +193,42 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   pointer-events: none;
 }
 
-.quiz-rail {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 8px 10px;
-  border-radius: 26px;
-  background: linear-gradient(180deg, rgba(255, 250, 244, 0.2), #fff6ea 38%);
-  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.7);
-}
-
-.rail-tools {
-  width: 100%;
+.quiz-top {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 4px;
+  gap: 8px;
+  height: 44px;
+  min-height: 44px;
 }
 
-.rail-tools .mute,
-.rail-tools .icon-btn {
-  width: 34px;
-  height: 34px;
+.quiz-top .mute,
+.quiz-top .icon-btn {
+  width: 40px;
+  height: 40px;
+  flex: none;
 }
 
-.rail-tools .icon-btn.wide { width: auto; height: 34px; padding: 0 8px; font-size: 13px; }
+.quiz-top .icon-btn.wide { width: auto; padding: 0 12px; font-size: 15px; }
 
 .quiz-island {
-  width: 100%;
-  flex: 0 0 34%;
-  min-height: 96px;
-  border-radius: 18px;
+  width: 44px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
 }
 
 .vtrack {
   flex: 1;
-  min-height: 0;
+  min-width: 0;
+  height: 28px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 3px;
-  padding: 2px 0;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
   pointer-events: none;
 }
 
@@ -250,29 +243,24 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 
 .bead.done { background: #ffd15c; box-shadow: 0 0 6px rgba(255, 190, 40, 0.8); }
 .bead.now { background: #3ecf7a; transform: scale(1.25); box-shadow: 0 0 8px rgba(62, 207, 122, 0.8); }
-.bead.trophy { width: auto; height: auto; background: none; box-shadow: none; font-size: 16px; filter: grayscale(1); }
+.bead.trophy { order: 1; width: auto; height: auto; background: none; box-shadow: none; font-size: 15px; filter: grayscale(1); }
 .bead.trophy.done { filter: none; }
 
 .stage-badge {
-  width: 100%;
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   text-align: center;
   background: #fff;
-  border-radius: 16px;
-  padding: 6px 4px 7px;
-  box-shadow: inset 0 2px 0 #fff, 0 4px 0 rgba(80, 50, 20, 0.08);
+  border-radius: 999px;
+  padding: 6px 12px;
+  box-shadow: inset 0 2px 0 #fff, 0 3px 0 rgba(80, 50, 20, 0.08);
   pointer-events: none;
 }
 
-.stage-badge span { display: block; font-size: 13px; font-weight: 800; }
-.stage-badge strong { font-size: 20px; }
-
-.quiz-board {
-  min-width: 0;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(300px, 1.22fr);
-  gap: 10px;
-}
+.stage-badge span { font-size: 14px; font-weight: 800; }
+.stage-badge strong { font-size: 18px; }
 
 .answer-panel {
   min-width: 0;
@@ -282,12 +270,21 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 16px 12px;
-  border-radius: 28px;
+  gap: 2px;
+  padding: 4px 12px;
+  border-radius: 22px;
   background: linear-gradient(180deg, #fffaf3, #fff3e4);
   border: 3px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 8px 0 rgba(90, 60, 20, 0.06);
+  box-shadow: 0 6px 0 rgba(90, 60, 20, 0.06);
+}
+
+.answer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 0;
+  pointer-events: none;
 }
 
 .equation {
@@ -295,9 +292,9 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 8px;
   max-width: 100%;
-  font-size: clamp(34px, 5.4vw, 56px);
+  font-size: clamp(48px, 13vh, 64px);
 }
 
 .equation.is-shaking { animation: shake 0.42s ease; }
@@ -319,36 +316,52 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 }
 
 .answer-bubble {
-  min-width: 1.35em;
+  min-width: 1.7em;
   width: auto;
-  height: 1.22em;
-  padding: 0 0.22em;
-  border-radius: 0.42em;
-  display: grid;
-  place-items: center;
+  height: 1.28em;
+  padding: 0 0.28em;
+  border-radius: 0.32em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1em;
   font-weight: 800;
-  color: white;
-  background: radial-gradient(circle at 35% 30%, #fff6c2, #ffd24a 46%, #f5a623);
-  box-shadow: 0 0 18px rgba(255, 214, 90, 0.95), inset 0 3px 0 rgba(255, 255, 255, 0.75);
-  text-shadow: 0 2px 0 rgba(180, 110, 0, 0.25);
+  color: #7a3b00;
+  background: linear-gradient(180deg, #fff7c4, #ffd24a);
+  border: 4px solid #f0a020;
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.7), 0 4px 0 rgba(180, 110, 0, 0.22);
+}
+
+.answer-bubble.is-empty {
+  background: #fff;
+  border-style: dashed;
+  box-shadow: 0 4px 0 rgba(180, 110, 0, 0.12);
+}
+
+.answer-bubble.is-empty::after {
+  content: '';
+  width: 0.1em;
+  height: 0.62em;
+  border-radius: 99px;
+  background: #f0a020;
+  animation: caret 1s steps(1) infinite;
 }
 
 .message {
   margin: 0;
-  min-height: 28px;
+  min-height: 0;
   text-align: center;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 18px;
+  line-height: 1.15;
 }
+
+.message:empty { display: none; }
 
 .message.cheer { color: #2f9e4a; }
 .message.try { color: #e07a2f; }
 
 .combo {
-  position: absolute;
-  right: 14px;
-  top: 8px;
   pointer-events: none;
   background: linear-gradient(180deg, #fff6c2, #ffd15c);
   color: #8a3d00;
@@ -362,10 +375,6 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 .combo.hot { background: linear-gradient(90deg, #ff8fb8, #ffe14a, #7ad0ff); color: #5a2460; }
 
 .streak-banner {
-  position: absolute;
-  left: 50%;
-  top: 10px;
-  transform: translateX(-50%);
   background: linear-gradient(180deg, #fff4b0, #ffc24a);
   color: #7a3b00;
   font-weight: 800;
@@ -384,18 +393,20 @@ body[data-screen='quiz'] { background: #d7f2ff; }
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: repeat(4, minmax(64px, 1fr));
-  grid-template-rows: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(60px, 1fr));
   gap: 8px;
   touch-action: manipulation;
 }
 
 .key {
   min-width: 0;
-  min-height: 64px;
-  border-radius: 22px;
+  width: 100%;
+  height: 100%;
+  min-height: 60px;
+  border-radius: 20px;
   color: white;
-  font-size: clamp(32px, 7vh, 44px);
+  font-size: clamp(32px, 8vh, 46px);
   font-weight: 800;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 46%), var(--key);
   box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.8), 0 6px 0 var(--lip);
@@ -408,12 +419,12 @@ body[data-screen='quiz'] { background: #d7f2ff; }
 
 .key-del, .key-ok {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 6px;
   line-height: 1;
-  font-size: clamp(18px, 3.4vh, 24px);
+  font-size: clamp(22px, 5vh, 32px);
 }
 
 .key-mark { font-size: 1.35em; line-height: 1; }
@@ -769,6 +780,10 @@ body.glow-ok::before { box-shadow: inset 0 0 40px rgba(255, 214, 80, 0.85); }
 body.glow-hot::before { box-shadow: inset 0 0 36px #ff7eb3, inset 0 0 70px #7ad0ff; }
 body.glow-max::before { box-shadow: inset 0 0 28px #ffe14a, inset 0 0 70px #ff7eb3, inset 0 0 100px #7ad957; }
 body.glow-soft::before { box-shadow: inset 0 0 28px rgba(255, 180, 120, 0.45); }
+
+@keyframes caret {
+  50% { opacity: 0; }
+}
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

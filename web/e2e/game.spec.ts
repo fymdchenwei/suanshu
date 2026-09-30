@@ -99,6 +99,8 @@ test('quiz keys are large and answers stay visible', async ({ page }) => {
   await page.getByRole('button', { name: '开始闯关' }).click();
   await expect(page.locator('#quiz')).toBeVisible();
   await blur(page);
+  await expect(page.locator('.answer-bubble')).toHaveText('');
+  await expect(page.locator('.answer-bubble')).toHaveClass(/is-empty/);
   await page.screenshot({ path: `${shots}/quiz_idle.png` });
 
   const boxes = await page.locator('#keypad .key').evaluateAll((els) =>
@@ -109,13 +111,14 @@ test('quiz keys are large and answers stay visible', async ({ page }) => {
   );
   expect(boxes.map((box) => box.label)).toEqual(['1', '2', '3', '退格', '4', '5', '6', '确定', '7', '8', '9', '0']);
   for (const box of boxes) {
-    expect(box.width, box.label ?? '').toBeGreaterThanOrEqual(64);
-    expect(box.height, box.label ?? '').toBeGreaterThanOrEqual(64);
+    expect(box.width, box.label ?? '').toBeGreaterThanOrEqual(150);
+    expect(box.height, box.label ?? '').toBeGreaterThanOrEqual(60);
   }
 
   await page.locator('#keypad').getByRole('button', { name: '确定' }).click();
   await expect(page.locator('#equation')).toHaveClass(/is-shaking/);
   await expect(page.locator('#message')).toHaveText('');
+  await expect(page.locator('.answer-bubble')).toHaveText('');
 
   const problem = await readProblem(page);
   const typed = problem.answer === 0 ? '2' : '0';
@@ -125,7 +128,7 @@ test('quiz keys are large and answers stay visible', async ({ page }) => {
   const pad = await page.locator('#keypad').boundingBox();
   expect(bubble).toBeTruthy();
   expect(pad).toBeTruthy();
-  expect(bubble!.x + bubble!.width).toBeLessThanOrEqual((pad?.x ?? 0) + 1);
+  expect(bubble!.y + bubble!.height).toBeLessThanOrEqual((pad?.y ?? 0) + 1);
   await page.screenshot({ path: `${shots}/quiz_typing.png` });
 
   await page.locator('#keypad').getByRole('button', { name: '确定' }).click();
