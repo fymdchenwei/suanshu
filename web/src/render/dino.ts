@@ -34,6 +34,10 @@ export interface DinoAnim {
   blinkIn: number;
   closing: number;
   hop: number;
+  blinks: number;
+  waves: number;
+  waving: boolean;
+  waveLatched: boolean;
 }
 
 const eyeWhite = new MeshBasicMaterial({ color: 0xffffff });
@@ -89,13 +93,13 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
   head.add(look);
   const eyes: Mesh[] = [];
   for (const side of [-1, 1]) {
-    const white = new Mesh(new SphereGeometry(0.16, 18, 14), eyeWhite);
+    const white = new Mesh(new SphereGeometry(0.2, 18, 14), eyeWhite);
     white.scale.set(1, 1.16, 0.55);
     white.position.set(side * 0.2, 0.06, 0.4);
     look.add(white);
     eyes.push(white);
 
-    const pupil = new Mesh(new SphereGeometry(0.078, 14, 12), eyeInk);
+    const pupil = new Mesh(new SphereGeometry(0.096, 14, 12), eyeInk);
     pupil.position.set(side * 0.21, 0.04, 0.5);
     look.add(pupil);
 
@@ -210,9 +214,13 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
     rig: { group, squash, body, head, look, eyes, smile, frown, armL, armR, legL, legR, tail, cape },
     mood: 'idle',
     moodUntil: 0,
-    blinkIn: 1.2,
+    blinkIn: 0.7,
     closing: 0,
     hop: 1,
+    blinks: 0,
+    waves: 0,
+    waving: false,
+    waveLatched: false,
   };
 }
 
@@ -260,14 +268,15 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
 
   anim.blinkIn -= dt;
   if (anim.blinkIn <= 0) {
-    anim.closing = 0.14;
-    anim.blinkIn = 2.1 + Math.random() * 2.6;
+    anim.closing = 0.36;
+    anim.blinkIn = 1.35 + Math.random() * 0.7;
+    anim.blinks += 1;
   }
   let open = 1;
   if (anim.closing > 0) {
     anim.closing -= dt;
-    const phase = 1 - Math.max(0, anim.closing) / 0.14;
-    open = Math.max(0.12, Math.abs(phase - 0.5) * 2);
+    const phase = 1 - Math.max(0, anim.closing) / 0.36;
+    open = Math.max(0.05, Math.abs(phase - 0.5) * 2);
   }
   for (const eye of rig.eyes) eye.scale.y = 1.12 * open;
 
@@ -298,6 +307,7 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
   rig.look.position.x = anim.mood === 'sad' ? 0 : Math.sin(time * 0.62) * 0.025;
   rig.look.position.y = anim.mood === 'sad' ? -0.01 : Math.sin(time * 0.45) * 0.01;
 
+  anim.waving = false;
   if (anim.mood === 'cheer' || anim.mood === 'happy') {
     const flap = Math.sin(time * (anim.mood === 'happy' ? 12 : 6.2)) * 0.16;
     rig.armL.rotation.z = -1.3 - flap;
@@ -311,12 +321,18 @@ export function updateDino(anim: DinoAnim, time: number, dt: number): void {
     rig.armL.rotation.set(0, 0, -0.65 + Math.sin(time * 2) * 0.1);
     rig.armR.rotation.set(-0.1, 0, 0.95 + Math.sin(time * 2.5) * 0.16);
   } else {
-    const cycle = time % 5.2;
-    const waving = cycle < 0.85;
+    const cycle = time % 3.2;
+    const waving = cycle < 1.15;
+    anim.waving = waving;
+    if (waving && !anim.waveLatched) {
+      anim.waves += 1;
+      anim.waveLatched = true;
+    }
+    if (!waving) anim.waveLatched = false;
     rig.armL.rotation.set(0.05, 0, -0.4 + Math.sin(time * 2) * 0.08);
     if (waving) {
-      const flap = Math.sin((cycle / 0.85) * Math.PI * 3);
-      rig.armR.rotation.set(-0.55, 0, 0.15 + flap * 1.05);
+      const flap = Math.sin((cycle / 1.15) * Math.PI * 4);
+      rig.armR.rotation.set(-1.35, 0.2, 0.15 + flap * 0.85);
     } else {
       rig.armR.rotation.set(-0.12, 0, 0.72 + Math.sin(time * 3) * 0.16);
     }

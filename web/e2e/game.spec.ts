@@ -38,6 +38,11 @@ test('plays a colourful round and collects cards', async ({ page }) => {
     });
   });
   expect(covered, '难度按钮挡住了小恐龙').toEqual([]);
+  await page.waitForFunction(() => Number(document.querySelector('#stage')?.getAttribute('data-blinks') || 0) >= 1);
+  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-blinking') === '1');
+  await page.screenshot({ path: `${shots}/home_blink.png` });
+  await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-waving') === '1');
+  await page.screenshot({ path: `${shots}/home_wave.png` });
   await page.screenshot({ path: `${shots}/home_island.png` });
   await page.locator('#pet-dino').tap();
   await page.waitForTimeout(160);
@@ -82,10 +87,37 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await expect(page.locator('#cards')).toBeVisible();
   await expect(page.locator('#album .tc').first()).toBeVisible();
   await page.waitForTimeout(450);
+  const album = await page.locator('#album .tc').evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      label: node.getAttribute('aria-label') ?? '',
+      locked: node.classList.contains('locked'),
+      name: node.querySelector('.tc-name')?.textContent ?? '',
+      detail: node.querySelector('.tc-detail')?.textContent ?? '',
+    })),
+  );
+  expect(album).toHaveLength(27);
+  expect(new Set(album.map((card) => card.label)).size).toBe(27);
+  expect(album.filter((card) => card.locked).length).toBeGreaterThan(10);
+  for (const card of album.filter((card) => card.locked)) {
+    expect(card.name).toBe('神秘卡片');
+    expect(card.detail.length).toBeGreaterThan(2);
+  }
   await page.screenshot({ path: `${shots}/card_book.png` });
   await page.locator('#album .tc').first().tap();
   await expect(page.locator('#inspect-say')).toBeVisible();
+  await expect(page.locator('#inspect-say')).not.toHaveText('');
   await page.screenshot({ path: `${shots}/card_inspect.png` });
+  await page.locator('#close-inspect').tap();
+  const albumBox = page.locator('#album');
+  await albumBox.evaluate((node) => {
+    node.scrollLeft = node.scrollWidth;
+  });
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${shots}/card_book_end.png` });
+  await page.locator('#album .tc.locked').last().tap();
+  await expect(page.locator('#inspect-say')).toBeVisible();
+  await expect(page.locator('#inspect-card')).toHaveClass(/locked/);
+  await page.screenshot({ path: `${shots}/card_locked.png` });
   await page.locator('#close-inspect').tap();
 
   const saved = await page.evaluate(() => localStorage.getItem('suanshu.web.v1'));

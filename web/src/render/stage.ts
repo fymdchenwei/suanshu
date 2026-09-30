@@ -329,6 +329,11 @@ export class Stage {
     const time = now / 1000;
 
     updateDino(this.homeAnim, time, dt);
+    const stageEl = this.renderer.domElement;
+    stageEl.dataset.blinks = String(this.homeAnim.blinks);
+    stageEl.dataset.waves = String(this.homeAnim.waves);
+    stageEl.dataset.blinking = this.homeAnim.closing > 0.08 ? '1' : '0';
+    stageEl.dataset.waving = this.homeAnim.waving ? '1' : '0';
     updateDino(this.quizAnim, time, dt);
     updateDino(this.resultsAnim, time, dt);
     if (this.homeAnim.hop < 1) this.homeAnim.hop = Math.min(1, this.homeAnim.hop + dt / 0.48);
