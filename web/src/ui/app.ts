@@ -175,8 +175,10 @@ function template(): string {
       <article class="award-card" id="award-card">
         <h2 id="result-title"></h2>
         <p id="result-body"></p>
-        <div class="award-stars" id="award-stars"></div>
-        <div class="award-score" id="score-text"></div>
+        <div class="award-main">
+          <div class="award-stars" id="award-stars"></div>
+          <div class="award-score" id="score-text"></div>
+        </div>
         <p class="award-meta"><span id="time-text"></span><span id="streak-text"></span></p>
         <div id="consolation"></div>
         <div class="earned-row" id="earned-row"></div>

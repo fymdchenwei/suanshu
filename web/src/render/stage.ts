@@ -160,7 +160,7 @@ export class Stage {
       1: this.makeTheme('#5eb6ff', '#b7e6ff', '#fff6d8', 0x8fd4ff, 0x7dce4e, 0xfff4d2, 1.55, 0xfff6ea, false),
       2: this.makeTheme('#ff9a4a', '#ffd27a', '#fff1c2', 0xffc48a, 0x8ed15a, 0xffc27a, 1.45, 0xffe0b0, false),
       3: this.makeTheme('#49c8ff', '#b6f3d4', '#e9ffe8', 0x8fe7c8, 0x3ec06a, 0xfff6e4, 1.5, 0xe7fff2, false),
-      4: this.makeTheme('#141b4a', '#3a4a90', '#6d78c9', 0x243068, 0x2f8a5c, 0xc9d4ff, 0.72, 0x9eb0e8, true),
+      4: this.makeTheme('#2a3d86', '#7f92e4', '#d5dcff', 0x4d62b4, 0x5cbf72, 0xe7eeff, 1.2, 0xd5e4ff, true),
     };
 
     this.sky = new Mesh(new SphereGeometry(40, 24, 16), new MeshBasicMaterial({ map: this.homeSky, side: BackSide, depthWrite: false }));
@@ -193,6 +193,8 @@ export class Stage {
     this.resultsAnim = built.dino;
     this.resultsChest = built.chest;
     this.quizChest = this.placeQuizChest();
+    this.results.position.y = 0.42;
+    this.results.scale.setScalar(1.22);
     this.scene.add(this.home, this.quiz, this.results);
     this.quiz.visible = false;
     this.results.visible = false;
@@ -298,7 +300,7 @@ export class Stage {
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(width, height, false);
     this.camera.aspect = width / height;
-    this.camera.fov = this.mode === 'quiz' ? 26 : 32;
+    this.camera.fov = this.mode === 'quiz' ? 30 : this.mode === 'results' ? 30 : 32;
     this.camera.updateProjectionMatrix();
   }
 
@@ -340,7 +342,7 @@ export class Stage {
     this.resultsChest.lid.rotation.x = damp(this.resultsChest.lid.rotation.x, -1.28, dt);
     this.stars.forEach((star, index) => {
       star.rotation.y = time * 0.9 + index;
-      star.position.y = 2.25 + Math.sin(time * 2 + index) * 0.08;
+      star.position.y = 1.92 + Math.sin(time * 2 + index) * 0.07;
     });
 
     for (const flutter of this.flutters) {
@@ -364,7 +366,8 @@ export class Stage {
     this.quizStones.forEach((stone, index) => {
       const current = index + 1 === this.quizStone;
       const pulse = current ? 1 + Math.sin(time * 5) * 0.05 : 1;
-      stone.mesh.scale.setScalar(pulse);
+      const base = Number(stone.mesh.userData.base ?? 1);
+      stone.mesh.scale.setScalar(base * pulse);
     });
 
     if (this.trail > 0 && this.mode === 'quiz') {
@@ -386,15 +389,15 @@ export class Stage {
   private applyCamera(time: number): void {
     if (this.mode === 'quiz') {
       const focus = this.quizAnim.rig.group.position.x;
-      const sway = Math.sin(time * 0.4) * 0.06;
-      this.camera.position.set(focus * 0.65 + sway, 1.28, 3.15);
-      this.camera.lookAt(focus * 0.65, 0.58, 0.02);
+      const sway = Math.sin(time * 0.35) * 0.07;
+      this.camera.position.set(focus * 0.32 + sway, 1.62, 5.25);
+      this.camera.lookAt(focus * 0.22, 0.42, 0.08);
       return;
     }
     if (this.mode === 'results') {
-      const sway = Math.sin(time * 0.35) * 0.08;
-      this.camera.position.set(0.1 + sway, 1.95, 4.55);
-      this.camera.lookAt(0, 0.95, 0.05);
+      const sway = Math.sin(time * 0.35) * 0.07;
+      this.camera.position.set(0.15 + sway, 1.55, 5.35);
+      this.camera.lookAt(0.02, 0.62, 0.02);
       return;
     }
     const sway = Math.sin(time * 0.28) * 0.18;
@@ -569,54 +572,63 @@ export class Stage {
   }
 
   private buildQuiz(): DinoAnim {
-    const ground = new Mesh(new CylinderGeometry(8, 8, 0.35, 40), this.quizGrass);
-    ground.position.y = -0.2;
+    const dirt = new Mesh(new CylinderGeometry(3.05, 2.25, 0.62, 32), mat(0xc48958, 0.88));
+    dirt.scale.set(1.42, 1, 0.78);
+    dirt.position.y = -0.22;
+    this.quiz.add(dirt);
+    const ground = new Mesh(new CylinderGeometry(3.1, 3.1, 0.2, 36), this.quizGrass);
+    ground.scale.set(1.42, 1, 0.78);
+    ground.position.y = 0.04;
     ground.receiveShadow = true;
     this.quiz.add(ground);
-    const hill = new Mesh(new SphereGeometry(3.4, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), this.quizGrass);
-    hill.scale.set(1.4, 0.28, 1);
-    hill.position.set(0.1, -0.05, -1.3);
+    const hill = new Mesh(new SphereGeometry(2.1, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), this.quizGrass);
+    hill.scale.set(1.55, 0.2, 0.72);
+    hill.position.set(0, 0.1, -0.42);
     hill.receiveShadow = true;
     this.quiz.add(hill);
-    this.addTufts(this.quiz, 0.02, 3.2, 18);
+    this.addTufts(this.quiz, 0.14, 2.15, 14);
 
     for (let i = 0; i <= 10; i += 1) {
       const t = i / 10;
-      const x = -2.15 + t * 4.3;
-      const z = Math.sin(t * Math.PI) * -0.18;
-      this.quizSlots.push(new Vector3(x, 0.16, z));
+      const x = -2.85 + t * 5.7;
+      const z = 0.28 + Math.sin(t * Math.PI) * 0.16;
+      this.quizSlots.push(new Vector3(x, 0.3, z));
       if (i === 0) continue;
       const stone = createQuizStone(String(i));
-      stone.mesh.position.set(x, 0.08, z);
+      stone.mesh.position.set(x, 0.16, z);
+      stone.mesh.rotation.x = -0.42;
+      stone.mesh.userData.base = 1.32;
+      stone.mesh.scale.setScalar(1.32);
       this.quiz.add(stone.mesh);
       this.quizStones.push(stone);
     }
 
     const dino = createDino();
-    dino.rig.group.scale.setScalar(0.98);
+    dino.rig.group.scale.setScalar(0.72);
     dino.rig.group.position.copy(this.quizSlots[0]!);
-    dino.rig.group.rotation.y = 0.2;
+    dino.rig.group.rotation.y = 0.35;
     this.quiz.add(dino.rig.group);
 
     const flowerColors = [0xff8fb8, 0xffd15c, 0xffffff, 0xc9a6ff, 0xff9a62];
     for (let i = 0; i < 8; i += 1) {
       const flower = createFlower(flowerColors[i % flowerColors.length]!);
-      flower.position.set(-2.4 + (i % 4) * 1.5, 0, 0.85 - Math.floor(i / 4) * 1.5);
+      const side = i < 4 ? -1 : 1;
+      flower.position.set(-2.2 + (i % 4) * 1.45, 0.08, side * 0.72);
       this.quiz.add(flower);
     }
     const leftPalm = createPalm();
-    leftPalm.position.set(-2.7, 0, -0.35);
-    leftPalm.scale.setScalar(0.75);
+    leftPalm.position.set(-3.15, 0.02, -0.15);
+    leftPalm.scale.setScalar(0.62);
     const rightTree = createRoundTree();
-    rightTree.position.set(2.55, 0, 0.15);
-    rightTree.scale.setScalar(0.7);
+    rightTree.position.set(3.05, 0.02, -0.05);
+    rightTree.scale.setScalar(0.58);
     this.quiz.add(leftPalm, rightTree);
     const mushroom = createMushroom(0.8);
-    mushroom.position.set(2.15, 0, 0.85);
+    mushroom.position.set(2.35, 0.06, 0.62);
     this.quiz.add(mushroom);
 
-    this.addCloud(this.quiz, -1.8, 1.85, -1.5, 0.65, 0.08);
-    this.addCloud(this.quiz, 1.6, 1.65, -1.2, 0.5, 0.06);
+    this.addCloud(this.quiz, -2.2, 2.05, -1.6, 0.7, 0.08);
+    this.addCloud(this.quiz, 1.8, 1.85, -1.35, 0.55, 0.06);
 
     const sun = new Mesh(new SphereGeometry(0.22, 14, 10), new MeshBasicMaterial({ color: 0xfff3a0 }));
     sun.position.set(1.8, 1.9, -1.8);
@@ -684,7 +696,7 @@ export class Stage {
 
     for (let i = 0; i < 3; i += 1) {
       const star = createStarMesh();
-      star.position.set(-0.55 + i * 0.55, 2.25, 0.15);
+      star.position.set(-0.62 + i * 0.62, 1.92, 0.2);
       this.results.add(star);
       this.stars.push(star);
     }

@@ -30,21 +30,26 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await expect(page.locator('#rotate')).toBeHidden();
   await page.screenshot({ path: `${shots}/home_island.png` });
 
-  await page.getByRole('button', { name: '挑战' }).click();
+  await page.getByRole('button', { name: '轻松' }).click();
   await page.getByRole('button', { name: '开始闯关' }).click();
   await expect(page.locator('#quiz')).toBeVisible();
   await blur(page);
 
   for (let step = 0; step < 30; step += 1) {
     await answerCurrent(page);
-    if (step === 0) await page.screenshot({ path: `${shots}/quiz_correct.png` });
+    if (step === 0) {
+      await page.waitForTimeout(280);
+      await page.screenshot({ path: `${shots}/quiz_correct.png` });
+    }
     if (step === 4) {
       await expect(page.locator('#streak-banner')).toContainText('连对 5 题');
+      await page.waitForTimeout(280);
       await page.screenshot({ path: `${shots}/quiz_streak.png` });
     }
     if (step === 9) {
       await expect(page.locator('#chest')).toBeVisible();
       await expect(page.locator('#reveal-card')).toBeVisible();
+      await page.waitForTimeout(700);
       await page.screenshot({ path: `${shots}/chest_card.png` });
     }
     await clearChest(page);
@@ -58,6 +63,7 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await page.locator('#results-cards').click();
   await expect(page.locator('#cards')).toBeVisible();
   await expect(page.locator('#album .tc').first()).toBeVisible();
+  await page.waitForTimeout(450);
   await page.screenshot({ path: `${shots}/card_book.png` });
 
   const saved = await page.evaluate(() => localStorage.getItem('suanshu.web.v1'));
