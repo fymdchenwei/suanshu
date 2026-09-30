@@ -99,8 +99,8 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   expect(new Set(album.map((card) => card.label)).size).toBe(27);
   expect(album.filter((card) => card.locked).length).toBeGreaterThan(10);
   for (const card of album.filter((card) => card.locked)) {
-    expect(card.name).toBe('神秘卡片');
-    expect(card.detail.length).toBeGreaterThan(2);
+    expect(card.detail).toMatch(/解锁/);
+    expect(card.name).toBe('');
   }
   await page.screenshot({ path: `${shots}/card_book.png` });
   await page.locator('#album .tc').first().tap();

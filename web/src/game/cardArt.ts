@@ -11,9 +11,7 @@ export function cardSvg(def: CardDef): string {
       </linearGradient>
     </defs>
     <rect width="200" height="250" rx="22" fill="url(#${uid}-sky)"/>
-    <circle cx="28" cy="26" r="2.2" fill="#fff6b0"/>
-    <circle cx="168" cy="34" r="1.8" fill="#fff"/>
-    <circle cx="150" cy="58" r="1.4" fill="#fff6b0"/>
+    ${scenery(def)}
     ${portrait(def)}
   </svg>`;
 }
@@ -80,7 +78,29 @@ const ART_CAST: Partial<Record<ArtKind, () => string>> = {
 };
 
 function ground(color = '#7dce4e'): string {
-  return `<ellipse cx="100" cy="226" rx="72" ry="14" fill="${shade(color, -24)}"/><ellipse cx="100" cy="218" rx="66" ry="11" fill="${color}"/>`;
+  return `<path d="M0 188 Q48 168 100 180 T200 170 V250 H0 Z" fill="${color}"/><path d="M0 208 Q70 194 200 214 V250 H0 Z" fill="${shade(color, -22)}"/>`;
+}
+
+function scenery(def: CardDef): string {
+  const stars = [
+    [24, 28, 4],
+    [168, 22, 3.2],
+    [46, 58, 2.4],
+    [150, 64, 3],
+    [110, 18, 2.2],
+    [186, 78, 2],
+  ]
+    .map(
+      ([x, y, r]) =>
+        `<polygon points="${x},${(y ?? 0) - (r ?? 3)} ${(x ?? 0) + (r ?? 3) * 0.35},${(y ?? 0) - (r ?? 3) * 0.2} ${(x ?? 0) + (r ?? 3)},${y} ${(x ?? 0) + (r ?? 3) * 0.35},${(y ?? 0) + (r ?? 3) * 0.45} ${x},${(y ?? 0) + (r ?? 3)} ${(x ?? 0) - (r ?? 3) * 0.35},${(y ?? 0) + (r ?? 3) * 0.45} ${(x ?? 0) - (r ?? 3)},${y} ${(x ?? 0) - (r ?? 3) * 0.35},${(y ?? 0) - (r ?? 3) * 0.2}" fill="#ffe56a"/>`,
+    )
+    .join('');
+  const clouds = `<ellipse cx="36" cy="46" rx="24" ry="12" fill="#fff" opacity="0.9"/><ellipse cx="58" cy="42" rx="16" ry="10" fill="#fff" opacity="0.9"/><ellipse cx="164" cy="86" rx="20" ry="10" fill="#fff" opacity="0.75"/>`;
+  const space = def.id === 'night-sky' || def.art === 'moon' || def.art === 'dino-astro';
+  const planet = space
+    ? `<circle cx="156" cy="48" r="18" fill="#ffe9a2"/><ellipse cx="156" cy="48" rx="28" ry="6" fill="none" stroke="#fff6c8" stroke-width="2" transform="rotate(-18 156 48)"/>`
+    : '';
+  return `${stars}${space ? '' : clouds}${planet}`;
 }
 
 function eye(x: number, y: number, s = 1): string {
@@ -493,20 +513,20 @@ function seasonSpirit(): string {
 }
 
 function astroBunny(): string {
-  return `${ground('#6b6bb5')}
-    <ellipse cx="78" cy="48" rx="12" ry="28" fill="#fff"/>
-    <ellipse cx="122" cy="48" rx="12" ry="28" fill="#fff"/>
-    <ellipse cx="78" cy="52" rx="5" ry="16" fill="#ffd0e0"/>
-    <ellipse cx="122" cy="52" rx="5" ry="16" fill="#ffd0e0"/>
-    <circle cx="100" cy="108" r="46" fill="#e8f4ff" stroke="#9ecbff" stroke-width="5"/>
-    <path d="M58 108 Q100 70 142 108" fill="#d7ecff" opacity="0.65"/>
-    ${face(100, 112, 15)}
-    <rect x="62" y="156" width="76" height="52" rx="18" fill="#5aa0f0" stroke="#2d74c8" stroke-width="3"/>
-    <circle cx="100" cy="180" r="10" fill="#ffe14a"/>
-    <rect x="40" y="164" width="22" height="16" rx="8" fill="#7eb6ff"/>
-    <rect x="138" y="164" width="22" height="16" rx="8" fill="#7eb6ff"/>
-    <ellipse cx="82" cy="210" rx="12" ry="7" fill="#2d74c8"/>
-    <ellipse cx="118" cy="210" rx="12" ry="7" fill="#2d74c8"/>`;
+  return `${ground('#3a2a78')}
+    <ellipse cx="78" cy="58" rx="11" ry="30" fill="#fff"/>
+    <ellipse cx="122" cy="58" rx="11" ry="30" fill="#fff"/>
+    <ellipse cx="78" cy="62" rx="5" ry="16" fill="#ffd0e0"/>
+    <ellipse cx="122" cy="62" rx="5" ry="16" fill="#ffd0e0"/>
+    <circle cx="100" cy="112" r="40" fill="#f7fbff" fill-opacity="0.35" stroke="#d7ecff" stroke-width="4"/>
+    ${face(100, 112, 14)}
+    <rect x="64" y="150" width="72" height="50" rx="18" fill="#f4f7ff" stroke="#d5e4ff" stroke-width="3"/>
+    <circle cx="100" cy="174" r="9" fill="#ffe14a"/>
+    <polygon points="100,164 103,171 110,172 105,177 106,184 100,180 94,184 95,177 90,172 97,171" fill="#fff6c8"/>
+    <rect x="42" y="158" width="22" height="16" rx="8" fill="#fff"/>
+    <rect x="136" y="158" width="22" height="16" rx="8" fill="#fff"/>
+    <ellipse cx="82" cy="206" rx="12" ry="7" fill="#e8eeff"/>
+    <ellipse cx="118" cy="206" rx="12" ry="7" fill="#e8eeff"/>`;
 }
 
 function shade(hex: string, amount: number): string {

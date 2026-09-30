@@ -33,7 +33,6 @@ import {
   createChest,
   createCloud,
   createFlower,
-  createHouse,
   createMushroom,
   createPalm,
   createPanda,
@@ -493,54 +492,31 @@ export class Stage {
     dino.rig.group.add(createShadow());
     this.home.add(dino.rig.group);
 
-    const chest = createChest();
-    chest.group.position.set(0.95, ground - 0.02, 0.15);
-    chest.group.scale.setScalar(0.82);
+    const chest = createChest({ open: true, purple: true });
+    chest.group.position.set(-1.25, ground - 0.02, 0.25);
+    chest.group.scale.setScalar(1.15);
     this.home.add(chest.group);
 
-    const house = createHouse();
-    house.position.set(-0.15, ground - 0.02, -1.15);
-    house.rotation.y = 0.4;
-    this.home.add(house);
+    const redMushroom = createMushroom(1.45, 0xff4d6a);
+    redMushroom.position.set(0.95, ground - 0.02, 0.35);
+    this.home.add(redMushroom);
+    const purpleMushroom = createMushroom(1.2, 0x9b6cff);
+    purpleMushroom.position.set(1.45, ground - 0.02, -0.15);
+    this.home.add(purpleMushroom);
 
-    for (const [x, z, scale] of [
-      [-1.55, 0.15, 1],
-      [0.35, -1.45, 0.92],
-      [1.55, -0.35, 0.85],
-    ] as const) {
-      const palm = createPalm();
-      palm.position.set(x, ground - 0.02, z);
-      palm.scale.setScalar(scale);
-      this.home.add(palm);
-    }
-    const tree = createRoundTree();
-    tree.position.set(-1.15, ground - 0.02, -0.85);
-    tree.scale.setScalar(0.9);
-    this.home.add(tree);
-
-    for (const [x, z, scale] of [
-      [-0.82, 0.55, 0.85],
-      [0.72, 0.72, 0.62],
-      [-0.55, -0.85, 0.7],
-    ] as const) {
-      const mushroom = createMushroom(scale);
-      mushroom.position.set(x, ground - 0.02, z);
-      this.home.add(mushroom);
-    }
-
-    const flowerColors = [0xff8fb8, 0xffd15c, 0xffffff, 0xff9a62, 0xc9a6ff];
-    for (let i = 0; i < 9; i += 1) {
+    const flowerColors = [0xff8fb8, 0xffe14a, 0x7eb6ff];
+    for (let i = 0; i < 18; i += 1) {
       const flower = createFlower(flowerColors[i % flowerColors.length]!);
-      const angle = (i / 9) * Math.PI * 2 + 0.4;
-      const radius = 1.25 + (i % 3) * 0.22;
-      flower.position.set(Math.cos(angle) * radius, ground - 0.02, Math.sin(angle) * radius * 0.92);
+      const angle = (i / 18) * Math.PI * 2 + 0.2;
+      const radius = 0.55 + (i % 5) * 0.28;
+      flower.position.set(Math.cos(angle) * radius, ground - 0.02, Math.sin(angle) * radius * 0.85);
       this.home.add(flower);
     }
 
     const rainbow = createRainbow();
-    rainbow.position.set(-0.15, 2.55, -1.7);
-    rainbow.scale.setScalar(1.35);
-    rainbow.rotation.y = 0.2;
+    rainbow.position.set(-1.55, 2.85, -1.35);
+    rainbow.scale.setScalar(1.85);
+    rainbow.rotation.y = 0.35;
     this.home.add(rainbow);
 
     this.addCloud(this.home, -2.6, 2.35, -1.1, 0.9, 0.12);
@@ -574,7 +550,7 @@ export class Stage {
       this.birds.push(bird);
     }
 
-    this.addSparkleField(this.home, 18, 2.2);
+    this.addSparkleField(this.home, 32, 2.35);
     return dino;
   }
 

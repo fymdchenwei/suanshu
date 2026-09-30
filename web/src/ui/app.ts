@@ -18,8 +18,6 @@ import {
   progress,
   resultBody,
   resultTitle,
-  roundSummary,
-  roundsPlayed,
   shareText,
   shortTitle,
   stageTitle,
@@ -50,9 +48,11 @@ export function mountApp(session: GameSession, stage: Stage): void {
   root.innerHTML = template();
   const ui = bind(root);
   buildDifficulty(ui.diffRow, session);
+  buildPathNodes(ui.pathNodes);
   buildKeypad(ui.keypad, session);
   buildTrack(ui.track);
   buildAlbum(ui.album);
+  ui.album.addEventListener('scroll', () => updatePager(ui.album, ui.albumPager), { passive: true });
 
   bindTap(ui.start, () => session.startRound());
   bindTap(ui.openCards, () => session.openCards());
@@ -159,7 +159,7 @@ function template(): string {
         <div class="pill pill-star" id="stat-correct">${starSvg()}<span id="correct-count">0</span></div>
         <button class="pill pill-book" id="open-cards" type="button">${bookSvg()}<span class="pill-count" id="card-count">0/27</span></button>
         <div class="spacer"></div>
-        <div class="pill pill-flame" id="stat-streak">${flameSvg()}<span id="streak-count">0</span></div>
+        <div class="pill pill-days" id="stat-streak">${flameSvg()}<span id="streak-count">0天</span></div>
         <button class="mute" data-mute type="button" aria-label="${Copy.mute}">${speakerSvg(false)}</button>
       </header>
       <div class="home-stage">
@@ -171,15 +171,25 @@ function template(): string {
             <div class="rainbow"></div>
             <i class="cloud c1"></i><i class="cloud c2"></i><i class="cloud c3"></i>
             <i class="twinkle t1"></i><i class="twinkle t2"></i><i class="twinkle t3"></i><i class="twinkle t4"></i>
+            <i class="twinkle t5"></i><i class="twinkle t6"></i>
           </div>
-          <div class="path-board" id="diff-row">
-            <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <path class="trail-edge" d="M18 84 C 46 86, 64 66, 80 58 S 42 34, 28 26 S 64 6, 82 12" />
-              <path class="trail-core" d="M18 84 C 46 86, 64 66, 80 58 S 42 34, 28 26 S 64 6, 82 12" />
-            </svg>
+          <div class="path-play">
+            <div class="path-board" id="path-nodes">
+              <svg class="trail" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <pattern id="checks" width="8" height="8" patternUnits="userSpaceOnUse">
+                    <rect width="8" height="8" fill="#ffb07a"/>
+                    <rect width="4" height="4" fill="#ff8eb8"/>
+                    <rect x="4" y="4" width="4" height="4" fill="#ff8eb8"/>
+                  </pattern>
+                </defs>
+                <path class="trail-edge" d="M16 86 C 42 84, 58 62, 48 48 S 70 28, 62 16 S 88 8, 90 14" />
+                <path class="trail-core" stroke="url(#checks)" d="M16 86 C 42 84, 58 62, 48 48 S 70 28, 62 16 S 88 8, 90 14" />
+              </svg>
+            </div>
+            <div class="diff-rail" id="diff-row"></div>
           </div>
-          <button class="start" id="start" type="button">${Copy.start}</button>
-          <p class="home-note" id="home-note"></p>
+          <button class="start" id="start" type="button"><span class="start-star" aria-hidden="true">★</span>${Copy.start}<span class="start-spark" aria-hidden="true">✦</span></button>
         </div>
       </div>
     </section>
@@ -231,11 +241,12 @@ function template(): string {
     <section id="cards" class="screen screen-cards" hidden>
       <div class="sheet can-scroll">
         <div class="sheet-head">
-          <button class="icon-btn wide" id="close-cards" type="button">${Copy.back}</button>
-          <h1>${Copy.cardBook}</h1>
-          <p id="collected-label"></p>
+          <button class="back-round" id="close-cards" type="button" aria-label="${Copy.back}">←</button>
+          <h1 class="album-title">我的卡片</h1>
+          <p class="heart-progress" id="collected-label"></p>
         </div>
         <div class="album" id="album"></div>
+        <div class="pager" id="album-pager" aria-hidden="true"></div>
         <div class="legacy" id="legacy" hidden></div>
       </div>
     </section>
@@ -243,14 +254,16 @@ function template(): string {
       <div class="modal-card chest-modal">
         <div class="chest-rays" aria-hidden="true"></div>
         <div class="chest-pop" aria-hidden="true">${confettiBits()}</div>
-        <h2 id="chest-title">${Copy.newCard}</h2>
+        <h2 id="chest-title" class="ribbon-title"><span>${Copy.newCard}</span></h2>
         <div class="chest-stage">
           <div class="chest-dino" aria-hidden="true">${cheerDinoSvg()}</div>
           <div id="reveal-card" class="reveal-card"></div>
-          <div class="chest-bubble">
+          <div class="chest-bubble" id="chest-bubble">
+            <i aria-hidden="true">★</i>
             <p id="chest-copy"></p>
-            <p id="chest-meta"></p>
+            <i aria-hidden="true">★</i>
           </div>
+          <p id="chest-meta" hidden></p>
         </div>
         <div class="modal-actions">
           <button class="btn btn-green" id="dismiss-chest" type="button">${Copy.takeCard}</button>
@@ -260,11 +273,9 @@ function template(): string {
     </div>
     <div id="inspect" class="modal" hidden role="dialog" aria-modal="true">
       <div class="inspect-wrap">
+        <p id="inspect-say"></p>
         <div id="inspect-card" class="inspect-card"></div>
-        <div class="inspect-side">
-          <p id="inspect-say"></p>
-          <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
-        </div>
+        <button class="btn btn-blue" id="close-inspect" type="button">${Copy.back}</button>
       </div>
     </div>
     <div id="exit-modal" class="modal" hidden role="dialog" aria-modal="true">
@@ -294,7 +305,8 @@ interface Ui {
   diffRow: HTMLElement;
   start: HTMLButtonElement;
   pet: HTMLButtonElement;
-  homeNote: HTMLElement;
+  pathNodes: HTMLElement;
+  albumPager: HTMLElement;
   exit: HTMLButtonElement;
   stageLabel: HTMLElement;
   progress: HTMLElement;
@@ -325,6 +337,7 @@ interface Ui {
   revealCard: HTMLElement;
   chestTitle: HTMLElement;
   chestCopy: HTMLElement;
+  chestBubble: HTMLElement;
   chestMeta: HTMLElement;
   dismissChest: HTMLButtonElement;
   chestCards: HTMLButtonElement;
@@ -358,7 +371,8 @@ function bind(root: ParentNode): Ui {
     diffRow: q('diff-row'),
     start: q('start'),
     pet: q('pet-dino'),
-    homeNote: q('home-note'),
+    pathNodes: q('path-nodes'),
+    albumPager: q('album-pager'),
     exit: q('exit'),
     stageLabel: q('stage-label'),
     progress: q('progress'),
@@ -389,6 +403,7 @@ function bind(root: ParentNode): Ui {
     revealCard: q('reveal-card'),
     chestTitle: q('chest-title'),
     chestCopy: q('chest-copy'),
+    chestBubble: q('chest-bubble'),
     chestMeta: q('chest-meta'),
     dismissChest: q('dismiss-chest'),
     chestCards: q('chest-cards'),
@@ -585,6 +600,8 @@ function buildAlbum(album: HTMLElement): void {
       <div class="tc-tilt">
         <div class="tc-art">${cardSvg(def)}</div>
         <div class="foil"></div>
+        <span class="q-mark" aria-hidden="true">?</span>
+        <span class="lock-mini" aria-hidden="true">🔒</span>
         <b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b>
         <strong class="tc-name">${def.name}</strong>
         <em class="tc-detail"></em>
@@ -604,23 +621,22 @@ function sync(ui: Ui, session: GameSession): void {
   const starTotal = session.save.rounds.reduce((sum, round) => sum + round.stars, 0);
   ui.correctCount.textContent = String(starTotal);
   ui.cardCount.textContent = `${catalogOwned}/${CARDS.length}`;
-  ui.streakCount.textContent = String(session.save.bestStreak);
+  const days = consecutiveDays(session.save.rounds);
+  ui.streakCount.textContent = `${days}天`;
   ui.correctCount.parentElement?.setAttribute('aria-label', `星星 ${starTotal}`);
-  ui.streakCount.parentElement?.setAttribute('aria-label', `最高连对 ${session.save.bestStreak} 题`);
-  ui.homeNote.textContent = `${detail(session.difficulty)} · ${roundsPlayed(session.roundsPlayed)}${lastRoundNote(session)}`;
+  ui.streakCount.parentElement?.setAttribute('aria-label', `连续 ${days} 天`);
   ui.openCards.setAttribute('aria-label', `${Copy.cardBook}，${collectedCount(catalogOwned, CARDS.length)}`);
 
   for (const button of ui.diffRow.querySelectorAll<HTMLButtonElement>('.diff')) {
     const difficulty = Number(button.dataset.difficulty) as Difficulty;
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
-    const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
     const open = difficultyOpen(session, difficulty);
     const selected = open && session.difficulty === difficulty;
     button.classList.toggle('selected', selected);
     button.classList.toggle('locked', !open);
-    const stars = cleared ? `<span class="node-stars">${'★'.repeat(best)}${'☆'.repeat(Math.max(0, 3 - best))}</span>` : '';
+    const icons = ['★', '+1', '↑', '🔥'];
     const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
-    const markup = `<span class="node-arrow" aria-hidden="true">▼</span><span class="node-num">${difficulty}</span><span class="node-face">${shortTitle(difficulty)}</span>${stars}${lock}`;
+    const markup = `<span class="diff-icon" aria-hidden="true">${icons[difficulty - 1] ?? '★'}</span><span class="diff-name">${shortTitle(difficulty)}</span>${lock}`;
     const view = `${markup}|${selected}|${open}`;
     if (button.dataset.view !== view) {
       button.dataset.view = view;
@@ -635,6 +651,27 @@ function sync(ui: Ui, session: GameSession): void {
     if (selected) button.setAttribute('aria-selected', 'true');
     else button.removeAttribute('aria-selected');
   }
+
+  for (const node of ui.pathNodes.querySelectorAll<HTMLElement>('.level-node')) {
+    const difficulty = Number(node.dataset.difficulty) as Difficulty;
+    const best = session.bestFor(difficulty)?.bestStars ?? 0;
+    const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
+    const open = difficultyOpen(session, difficulty);
+    const selected = open && session.difficulty === difficulty;
+    node.classList.toggle('cleared', cleared);
+    node.classList.toggle('current', selected && !cleared);
+    node.classList.toggle('locked', !open);
+    const stars = cleared
+      ? `<span class="node-stars">${Array.from({ length: 3 }, (_, index) => `<i class="${index < best ? 'on' : ''}">★</i>`).join('')}</span>`
+      : '';
+    const marker = cleared ? '' : '<span class="node-lock" aria-hidden="true">🔒</span><span class="node-arrow" aria-hidden="true">▼</span>';
+    const markup = `${marker}${stars}`;
+    if (node.dataset.view !== markup) {
+      node.dataset.view = markup;
+      node.innerHTML = markup;
+    }
+  }
+  updatePager(ui.album, ui.albumPager);
 
   for (const button of ui.mutes) {
     const label = session.isMuted ? Copy.unmute : Copy.mute;
@@ -704,7 +741,7 @@ function sync(ui: Ui, session: GameSession): void {
         })
         .join('')}</div>`
     : '';
-  ui.collectedLabel.textContent = collectedCount(catalogOwned, CARDS.length);
+  ui.collectedLabel.textContent = `${catalogOwned}/${CARDS.length}`;
 
   show(ui.chest, session.chest !== null && session.screen === 'quiz');
   if (session.chest) paintChest(ui, session);
@@ -724,13 +761,9 @@ function paintOwned(button: HTMLButtonElement, def: CardDef, earned: EarnedCard 
   const name = button.querySelector('.tc-name');
   const detail = button.querySelector('.tc-detail');
   const foot = button.querySelector('.tc-foot');
-  if (name) name.textContent = earned ? def.name : '神秘卡片';
-  if (detail) detail.textContent = earned ? earned.achievement : hint;
-  if (foot) {
-    foot.textContent = earned
-      ? `${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}`
-      : '未收集';
-  }
+  if (name) name.textContent = earned ? def.name : '';
+  if (detail) detail.textContent = earned ? '' : hint;
+  if (foot) foot.textContent = '';
 }
 
 function paintChest(ui: Ui, session: GameSession): void {
@@ -744,25 +777,25 @@ function paintChest(ui: Ui, session: GameSession): void {
   ui.chestCards.hidden = !showing;
   if (grant && def && earned) {
     ui.revealCard.className = `reveal-card rarity-${def.rarity}`;
-    ui.revealCard.innerHTML = cardShell(def, earned);
-    ui.chestTitle.textContent = Copy.newCard;
-    ui.chestCopy.textContent = def.line;
-    ui.chestMeta.textContent = `${earned.achievement} · ${formatCardDate(earned.earnedAt)}`;
-    if (chest.banked > 0 && chest.cursor === chest.cards.length - 1) {
-      ui.chestMeta.textContent += ` · 另外 ${chest.banked} 张已放进卡片本`;
-    }
+    ui.revealCard.innerHTML = chestCardShell(def);
+    const title = ui.chestTitle.querySelector('span');
+    if (title) title.textContent = Copy.newCard;
+    const keepGoing = def.id === 'cheer-up' || def.id === 'retry-heart';
+    ui.chestBubble.classList.toggle('is-blue', keepGoing);
+    ui.chestBubble.classList.toggle('is-pink', !keepGoing);
+    ui.chestCopy.textContent = keepGoing ? '继续加油！' : '太棒啦';
+    ui.chestMeta.textContent = '';
   } else {
     ui.revealCard.innerHTML = '';
     ui.chestTitle.textContent = Copy.chestEmptyTitle;
     ui.chestCopy.textContent = Copy.chestEmptyDetail;
     ui.chestMeta.textContent = '';
   }
-  const last = !grant || chest.cursor >= chest.cards.length - 1;
-  ui.dismissChest.textContent = last && chest.isFinal ? Copy.seeScore : Copy.takeCard;
+  ui.dismissChest.textContent = Copy.takeCard;
 }
 
-function cardShell(def: CardDef, earned: EarnedCard): string {
-  return `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><div class="foil"></div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">${def.name}</strong><em class="tc-detail">${earned.achievement}</em><small class="tc-foot">${formatCardDate(earned.earnedAt)} · ${correctLabel(earned.correctCount, earned.id.startsWith('legacy:'))}</small></div>`;
+function chestCardShell(def: CardDef): string {
+  return `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><strong class="tc-name">${def.name}</strong><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b></div>`;
 }
 
 function miniCard(earned: EarnedCard): string {
@@ -779,8 +812,8 @@ function openInspect(ui: Ui, id: string, session: GameSession): void {
   ui.inspectCard.className = `inspect-card rarity-${def.rarity}${earned ? '' : ' locked'}`;
   ui.inspectSay.textContent = earned ? def.line : hint;
   ui.inspectCard.innerHTML = earned
-    ? cardShell(def, earned)
-    : `<div class="tc-tilt"><div class="tc-art">${cardSvg(def)}</div><b class="tc-rarity">${RARITY_LABEL[def.rarity]}</b><strong class="tc-name">神秘卡片</strong><em class="tc-detail">${hint}</em><small class="tc-foot">还没收集到</small></div>`;
+    ? chestCardShell(def)
+    : `<div class="tc-tilt"><span class="q-mark" aria-hidden="true">?</span><span class="lock-mini" aria-hidden="true">🔒</span><em class="tc-detail">${hint}</em></div>`;
   ui.inspect.hidden = false;
   ui.inspectTilt?.();
   ui.inspectTilt = bindInspectTilt(ui.inspectCard);
@@ -913,6 +946,7 @@ function flyClone(source: HTMLElement, target: HTMLElement): void {
   if (from.width === 0 || to.width === 0) return;
   const flyer = source.cloneNode(true) as HTMLElement;
   flyer.removeAttribute('id');
+  for (const node of flyer.querySelectorAll('.tc-name, .tc-detail, .tc-foot, .tc-rarity')) node.remove();
   flyer.classList.add('flyer');
   flyer.style.left = `${from.left}px`;
   flyer.style.top = `${from.top}px`;
@@ -943,10 +977,53 @@ async function share(session: GameSession): Promise<void> {
   }
 }
 
-function lastRoundNote(session: GameSession): string {
-  const last = session.save.rounds[0];
-  if (!last) return '';
-  return ` · ${roundSummary(last.firstTryCorrect, last.total, last.stars)}`;
+function consecutiveDays(rounds: { playedAt: string }[], nowMs = Date.now()): number {
+  const keys = new Set(
+    rounds.map((round) => {
+      const played = new Date(round.playedAt);
+      return `${played.getFullYear()}-${played.getMonth()}-${played.getDate()}`;
+    }),
+  );
+  const cursor = new Date(nowMs);
+  const key = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  if (!keys.has(key(cursor))) cursor.setDate(cursor.getDate() - 1);
+  if (!keys.has(key(cursor))) return 0;
+  let count = 0;
+  while (keys.has(key(cursor))) {
+    count += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return count;
+}
+
+function buildPathNodes(board: HTMLElement): void {
+  for (const difficulty of ALL_DIFFICULTIES) {
+    const node = document.createElement('div');
+    node.className = 'level-node';
+    node.dataset.difficulty = String(difficulty);
+    node.setAttribute('aria-hidden', 'true');
+    board.append(node);
+  }
+}
+
+function updatePager(album: HTMLElement, pager: HTMLElement): void {
+  const width = album.clientWidth;
+  if (width < 2) {
+    pager.replaceChildren();
+    return;
+  }
+  const pages = Math.max(1, Math.ceil(album.scrollWidth / width - 0.05));
+  const index = Math.min(pages - 1, Math.round(album.scrollLeft / width));
+  const view = `${pages}:${index}`;
+  if (pager.dataset.view === view) return;
+  pager.dataset.view = view;
+  pager.replaceChildren(
+    ...Array.from({ length: pages }, (_, page) => {
+      const bit = document.createElement('i');
+      bit.className = page === index ? 'on' : '';
+      return bit;
+    }),
+  );
 }
 
 function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
@@ -962,7 +1039,7 @@ function unlockHint(def: CardDef, session: GameSession): string {
   const correct = save.cumulativeFirstTry;
   const played = (id: Difficulty) => save.bests[id]?.roundsPlayed ?? 0;
   const stars = (id: Difficulty) => save.bests[id]?.bestStars ?? 0;
-  const pair = (label: string, have: number, need: number) => `${label} ${Math.min(have, need)}/${need}`;
+  const pair = (label: string, have: number, need: number) => `${label} (${Math.min(have, need)}/${need})`;
   switch (def.id) {
     case 'sprout':
       return pair('完成1关解锁', rounds, 1);
@@ -1029,26 +1106,28 @@ function confettiBits(): string {
 }
 
 function cheerDinoSvg(): string {
-  return `<svg viewBox="0 0 120 150" aria-hidden="true">
-    <ellipse cx="60" cy="132" rx="36" ry="10" fill="#7dce4e"/>
-    <ellipse cx="34" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
-    <ellipse cx="86" cy="78" rx="8" ry="12" fill="#ffb7d2"/>
-    <ellipse cx="60" cy="108" rx="28" ry="22" fill="#8ee06a"/>
-    <ellipse cx="60" cy="112" rx="16" ry="12" fill="#fff6ea"/>
-    <ellipse cx="40" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
-    <ellipse cx="80" cy="124" rx="10" ry="6" fill="#5cbf4a"/>
-    <ellipse cx="28" cy="100" rx="8" ry="7" fill="#8ee06a"/>
-    <ellipse cx="96" cy="86" rx="8" ry="7" fill="#8ee06a" transform="rotate(-30 96 86)"/>
-    <ellipse cx="60" cy="62" rx="32" ry="30" fill="#8ee06a"/>
-    <ellipse cx="46" cy="60" rx="10" ry="12" fill="#fff"/>
-    <ellipse cx="74" cy="60" rx="10" ry="12" fill="#fff"/>
-    <ellipse cx="47" cy="62" rx="5" ry="6" fill="#6b4226"/>
-    <ellipse cx="75" cy="62" rx="5" ry="6" fill="#6b4226"/>
-    <circle cx="50" cy="58" r="2.2" fill="#fff"/>
-    <circle cx="78" cy="58" r="2.2" fill="#fff"/>
-    <ellipse cx="34" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
-    <ellipse cx="86" cy="72" rx="6" ry="3" fill="#ff8eaa"/>
-    <path d="M50 76 Q60 86 70 76" fill="none" stroke="#5a3a28" stroke-width="2.4" stroke-linecap="round"/>
+  return `<svg viewBox="0 0 140 170" aria-hidden="true">
+    <ellipse cx="70" cy="156" rx="40" ry="10" fill="#7dce4e"/>
+    <ellipse cx="28" cy="78" rx="10" ry="16" fill="#ffb03a"/>
+    <ellipse cx="112" cy="78" rx="10" ry="16" fill="#ffb03a"/>
+    <ellipse cx="70" cy="118" rx="32" ry="26" fill="#7ed9c0"/>
+    <ellipse cx="70" cy="124" rx="18" ry="14" fill="#fff6ea"/>
+    <ellipse cx="46" cy="142" rx="12" ry="7" fill="#49c4a8"/>
+    <ellipse cx="94" cy="142" rx="12" ry="7" fill="#49c4a8"/>
+    <ellipse cx="24" cy="96" rx="9" ry="8" fill="#7ed9c0" transform="rotate(50 24 96)"/>
+    <ellipse cx="116" cy="96" rx="9" ry="8" fill="#7ed9c0" transform="rotate(-50 116 96)"/>
+    <ellipse cx="18" cy="78" rx="8" ry="8" fill="#7ed9c0"/>
+    <ellipse cx="122" cy="78" rx="8" ry="8" fill="#7ed9c0"/>
+    <ellipse cx="70" cy="68" rx="36" ry="32" fill="#7ed9c0"/>
+    <ellipse cx="54" cy="66" rx="11" ry="13" fill="#fff"/>
+    <ellipse cx="86" cy="66" rx="11" ry="13" fill="#fff"/>
+    <ellipse cx="55" cy="68" rx="5.5" ry="6.5" fill="#6b4226"/>
+    <ellipse cx="87" cy="68" rx="5.5" ry="6.5" fill="#6b4226"/>
+    <circle cx="58" cy="64" r="2.4" fill="#fff"/>
+    <circle cx="90" cy="64" r="2.4" fill="#fff"/>
+    <ellipse cx="40" cy="80" rx="7" ry="3.5" fill="#ff8eaa"/>
+    <ellipse cx="100" cy="80" rx="7" ry="3.5" fill="#ff8eaa"/>
+    <path d="M58 84 Q70 96 82 84" fill="none" stroke="#5a3a28" stroke-width="2.6" stroke-linecap="round"/>
   </svg>`;
 }
 
@@ -1057,7 +1136,7 @@ function starSvg(): string {
 }
 
 function flameSvg(): string {
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff6b57" d="M12 2s2 3.2 2 5.2c0 1.2-.6 1.8-1.2 1.2.8 2.4 3.2 3.2 3.2 6.2A4.8 4.8 0 0 1 7 15.4C7 12 10 11 10 8.2 10 5.6 12 2 12 2z"/></svg>';
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#ff8a2a" d="M12 2c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 1-5 1 1 2 1 3-3z"/><path fill="#ffe14a" d="M12 10c.6 1.4 2 2 2 3.6a2 2 0 0 1-4 0c0-1 .6-1.6.8-2.6.4.6.8.6 1.2-1z"/></svg>';
 }
 
 function bookSvg(): string {

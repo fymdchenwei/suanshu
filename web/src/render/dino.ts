@@ -52,8 +52,8 @@ export function createDino(options: { cape?: boolean } = {}): DinoAnim {
   group.add(squash);
   squash.add(body);
 
-  const green = mat(0x8ee06a, 0.9, 0);
-  const greenDeep = mat(0x5cbf4a, 0.92, 0);
+  const green = mat(0x7ed9c0, 0.9, 0);
+  const greenDeep = mat(0x49c4a8, 0.92, 0);
   const bellyMat = mat(0xfff6ea, 0.92, 0);
   const finMat = mat(0xffb3d0, 0.9, 0);
   const blushMat = mat(0xff8eaa, 0.9, 0);
