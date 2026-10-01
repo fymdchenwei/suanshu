@@ -17,8 +17,21 @@ test('plays a colourful round and collects cards', async ({ page }) => {
   await page.goto('/suanshu/');
   await page.waitForFunction(() => document.querySelector('#stage')?.getAttribute('data-ready') === '1');
   await expect(page.locator('#pet-dino .island-sprite')).toBeVisible();
-  await expect(page.locator(".level-node[data-difficulty='1'] .node-lock")).toHaveCount(0);
-  await expect(page.locator('#diff-row .diff').first()).not.toHaveClass(/locked/);
+  await expect(page.locator('.level-node .node-lock')).toHaveCount(0);
+  await expect(page.locator('#diff-row .diff.locked')).toHaveCount(0);
+  await expect(page.locator('#diff-row .diff')).toHaveCount(4);
+  const diffBoxes = await page.locator('#diff-row .diff').evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect();
+      return { width: Math.round(box.width), height: Math.round(box.height) };
+    }),
+  );
+  expect(new Set(diffBoxes.map((box) => box.width)).size).toBe(1);
+  expect(new Set(diffBoxes.map((box) => box.height)).size).toBe(1);
+  for (const box of diffBoxes) {
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
 
   await expect(page.getByRole('button', { name: '开始闯关' })).toBeVisible();
   await expect(page.locator('#rotate')).toBeHidden();
@@ -302,7 +315,11 @@ test('one tap reaches each control on an iPhone', async ({ page }) => {
   await expect(easy).toHaveAttribute('aria-selected', 'true');
   const carry = page.locator('#diff-row .diff').nth(1);
   await carry.tap();
-  await expect(carry).not.toHaveAttribute('aria-selected', 'true');
+  await expect(carry).toHaveAttribute('aria-selected', 'true');
+  await expect(easy).not.toHaveAttribute('aria-selected', 'true');
+  await page.locator(".level-node[data-difficulty='4']").tap();
+  await expect(page.locator("#diff-row .diff[data-difficulty='4']")).toHaveAttribute('aria-selected', 'true');
+  await page.locator(".level-node[data-difficulty='1']").tap();
   await expect(easy).toHaveAttribute('aria-selected', 'true');
 
   await page.getByRole('button', { name: '开始闯关' }).tap();

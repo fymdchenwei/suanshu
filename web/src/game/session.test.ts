@@ -117,6 +117,17 @@ describe('GameSession', () => {
     expect(store.data.cards.some((card) => card.id === 'star-penguin')).toBe(false);
   });
 
+  it('lets every difficulty be chosen before any earlier round is cleared', () => {
+    const session = makeSession();
+    session.setDifficulty(4);
+    expect(session.difficulty).toBe(4);
+    session.setDifficulty(3);
+    expect(session.difficulty).toBe(3);
+    session.setDifficulty(2);
+    expect(session.difficulty).toBe(2);
+    expect(session.save.bests[1]?.roundsPlayed ?? 0).toBe(0);
+  });
+
   it('remembers mute and difficulty, and keeps migrated sticker cards', () => {
     const { session, store } = makeSessionWithStore();
     store.data.stickers = [{ id: 'panda', earnedAt: '2026-02-02T00:00:00.000Z', difficulty: 1, stage: 1 }];
