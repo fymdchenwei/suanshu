@@ -57,7 +57,7 @@ export function mountApp(session: GameSession, stage: Stage): void {
   root.innerHTML = template();
   const ui = bind(root);
   buildDifficulty(ui.diffRow, session);
-  buildPathNodes(ui.pathNodes);
+  buildPathNodes(ui.pathNodes, session);
   buildKeypad(ui.keypad, session);
   buildTrack(ui.track);
   buildSeriesTabs(ui, session);
@@ -458,15 +458,7 @@ function buildDifficulty(row: HTMLElement, session: GameSession): void {
     button.type = 'button';
     button.className = 'diff';
     button.dataset.difficulty = String(difficulty);
-    bindTap(button, () => {
-      if (!difficultyOpen(session, difficulty)) {
-        button.classList.remove('is-shaking');
-        void button.offsetWidth;
-        button.classList.add('is-shaking');
-        return;
-      }
-      session.setDifficulty(difficulty);
-    });
+    bindTap(button, () => session.setDifficulty(difficulty));
     row.append(button);
   }
 }
@@ -681,24 +673,17 @@ function sync(ui: Ui, session: GameSession): void {
   for (const button of ui.diffRow.querySelectorAll<HTMLButtonElement>('.diff')) {
     const difficulty = Number(button.dataset.difficulty) as Difficulty;
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
-    const open = difficultyOpen(session, difficulty);
-    const selected = open && session.difficulty === difficulty;
+    const selected = session.difficulty === difficulty;
     button.classList.toggle('selected', selected);
-    button.classList.toggle('locked', !open);
+    button.classList.remove('locked');
     const icons = ['★', '+1', '↑', '🔥'];
-    const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
-    const markup = `<span class="diff-icon" aria-hidden="true">${icons[difficulty - 1] ?? '★'}</span><span class="diff-name">${shortTitle(difficulty)}</span>${lock}`;
-    const view = `${markup}|${selected}|${open}`;
+    const markup = `<span class="diff-icon" aria-hidden="true">${icons[difficulty - 1] ?? '★'}</span><span class="diff-name">${shortTitle(difficulty)}</span>`;
+    const view = `${markup}|${selected}`;
     if (button.dataset.view !== view) {
       button.dataset.view = view;
       button.innerHTML = markup;
     }
-    button.setAttribute(
-      'aria-label',
-      open
-        ? `${shortTitle(difficulty)}，${detail(difficulty)}，最佳 ${best} 颗星`
-        : `${shortTitle(difficulty)}，${detail(difficulty)}，未解锁`,
-    );
+    button.setAttribute('aria-label', `${shortTitle(difficulty)}，${detail(difficulty)}，最佳 ${best} 颗星`);
     if (selected) button.setAttribute('aria-selected', 'true');
     else button.removeAttribute('aria-selected');
   }
@@ -707,17 +692,15 @@ function sync(ui: Ui, session: GameSession): void {
     const difficulty = Number(node.dataset.difficulty) as Difficulty;
     const best = session.bestFor(difficulty)?.bestStars ?? 0;
     const cleared = (session.bestFor(difficulty)?.roundsPlayed ?? 0) > 0;
-    const open = difficultyOpen(session, difficulty);
-    const selected = open && session.difficulty === difficulty;
+    const selected = session.difficulty === difficulty;
     node.classList.toggle('cleared', cleared);
     node.classList.toggle('current', selected && !cleared);
-    node.classList.toggle('locked', !open);
+    node.classList.remove('locked');
     const stars = cleared
       ? `<span class="node-stars">${Array.from({ length: 3 }, (_, index) => `<i class="${index < best ? 'on' : ''}">★</i>`).join('')}</span>`
       : '';
-    const lock = open ? '' : '<span class="node-lock" aria-hidden="true">🔒</span>';
     const arrow = selected ? '<span class="node-arrow" aria-hidden="true">▼</span>' : '';
-    const markup = `<span class="node-num">${difficulty}</span>${lock}${arrow}${stars}`;
+    const markup = `<span class="node-num">${difficulty}</span>${arrow}${stars}`;
     if (node.dataset.view !== markup) {
       node.dataset.view = markup;
       node.innerHTML = markup;
@@ -1055,12 +1038,14 @@ async function share(session: GameSession): Promise<void> {
   }
 }
 
-function buildPathNodes(board: HTMLElement): void {
+function buildPathNodes(board: HTMLElement, session: GameSession): void {
   for (const difficulty of ALL_DIFFICULTIES) {
-    const node = document.createElement('div');
+    const node = document.createElement('button');
+    node.type = 'button';
     node.className = 'level-node';
     node.dataset.difficulty = String(difficulty);
-    node.setAttribute('aria-hidden', 'true');
+    node.setAttribute('aria-label', `第${difficulty}关`);
+    bindTap(node, () => session.setDifficulty(difficulty));
     board.append(node);
   }
 }
@@ -1071,12 +1056,6 @@ function stepInspect(ui: Ui, session: GameSession, delta: number): void {
   const index = Math.max(0, row.findIndex((card) => card.id === current));
   const next = row[(index + delta + row.length) % row.length];
   if (next) openInspect(ui, next.id, session);
-}
-
-function difficultyOpen(session: GameSession, difficulty: Difficulty): boolean {
-  if (difficulty <= 1) return true;
-  const previous = (difficulty - 1) as Difficulty;
-  return (session.bestFor(previous)?.roundsPlayed ?? 0) > 0;
 }
 
 function unlockHint(def: CardDef, session: GameSession, ownedIds: string[]): string {
